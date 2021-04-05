@@ -5,25 +5,28 @@ var bodyParser = require('body-parser');
 app.use(bodyParser.urlencoded({extended:false}));
 app.use(bodyParser.json());
 
+/*
+	Coordinates chosen for the hospital unless specfied, using coordinates from google maps
+*/
 gps_dictionary={
-	 "Alice Ho Miu Ling Nethersole Hospital":[22.3415,114.1532], 
-     "Caritas Medical Centre":[22.3415,114.1532], 
-     "Kwong Wah Hospital":[22.3152,114.1724], 
-     "North District Hospital":[22.3415,114.1532], 
-     "North Lantau Hospital":[22.3415,114.1532], 
-     "Princess Margaret Hospital":[22.3415,114.1532], 
-     "Pok Oi Hospital":[22.3415,114.1532], 
-     "Prince of Wales Hospital":[22.3415,114.1532], 
-     "Pamela Youde Nethersole Eastern Hospital":[22.3415,114.1532], 
-     "Queen Elizabeth Hospital":[22.3415,114.1532], 
-     "Queen Mary Hospital":[22.3415,114.1532], 
-     "St John Hospital":[22.3415,114.1532], 
-     "Tseung Kwan O Hospital":[22.3415,114.1532], 
-     "Tuen Mun Hospital":[22.3415,114.1532], 
-     "Tin Shui Wai Hospital":[22.3415,114.1532], 
-     "United Christian Hospital":[22.3415,114.1532], 
-     "Yan Chai Hospital":[22.3415,114.1532],
-     "Ruttonjee Hospital":[22.3415,114.1532]
+	 "Alice Ho Miu Ling Nethersole Hospital":	[22.45913185742467,  114.17469068876338], 
+     "Caritas Medical Centre":					[22.341772912666165, 114.15320232677372], 
+     "Kwong Wah Hospital":						[22.31541006804377,  114.17240266910228], 
+     "North District Hospital":					[22.497087757325254, 114.12469079794036], 
+     "North Lantau Hospital":					[22.282266349922747, 113.9392599691018], 
+     "Princess Margaret Hospital":				[22.341668612896427, 114.13373546725335], 
+     "Pok Oi Hospital":							[22.445004779595717, 114.0420270678224], 	// Coordiantes of A&E
+     "Prince of Wales Hospital":				[22.38079103788961,  114.20195365848012],	// Coordiantes of A&E
+     "Pamela Youde Nethersole Eastern Hospital":[22.269277042925737, 114.23544138768872], 	// Coordiantes of Emergency Room
+     "Queen Elizabeth Hospital":				[22.30955973314367,  114.17606620922312], 	// Coordiantes of A&E
+     "Queen Mary Hospital":						[22.27077146378893,  114.1313066074947],	// Coordiantes of Emergency Room
+	 "Ruttonjee Hospital":						[22.27587303226667,  114.17531096773565],
+     "St John Hospital":						[22.20808237968386,  114.03163397237024], 
+     "Tseung Kwan O Hospital":					[22.31737229464226,  114.27027219094613], 	// Coordiantes of A&E
+     "Tuen Mun Hospital":						[22.407044471010426, 113.9762685280754], 	// Coordiantes of A&E
+     "Tin Shui Wai Hospital":					[22.458752601246452, 113.99582695694608], 	// Coordiantes of A&E
+     "United Christian Hospital":				[22.322312351570925, 114.22800587362383],	// Coordiantes of A&E
+     "Yan Chai Hospital":						[22.36973757058297,  114.11960031686614]
 };
 
 var mongoose = require('mongoose');
