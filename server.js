@@ -140,6 +140,7 @@ app.get('/comment', function(req,res) {
 });
 //The above function can be modified to update favorite place too
 
+
 //CRUD place data
 
 //Create place data
