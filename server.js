@@ -30,6 +30,7 @@ gps_dictionary={
 };
 
 var mongoose = require('mongoose');
+const { SSL_OP_SSLEAY_080_CLIENT_DH_BUG } = require('node:constants');
 var Schema = mongoose.Schema;
 mongoose.connect('mongodb://s1155095200:x08938@localhost/s1155095200');
 
@@ -140,8 +141,98 @@ app.get('/comment', function(req,res) {
 //The above function can be modified to update favorite place too
 
 
+//CRUD place data
 
+//Create place data
+app.post('/admin/addplace', function(req, res){
+	if (req.body.name == null){
+		res.send("name cnot be empty.");
+	}
+	else{
+		var new_comment = new Comment({
+			comment: null
+		});
+		new_comment.save(function(err)
+		{
+			if(err){
+				console.log("new comment err: "+ err);
+			}
+		});
 
+		var new_place = new Place({
+			name: req.body.name,
+			latitude: req.body.latitude,
+			longitude: req.body.longitude,
+			waitTime: req.body.waitTime,
+			updateTime: req.body.updateTime,
+			comment: new_comment
+		});
+		new_place.save(function(err)
+		{
+			if(err){
+				console.log("new place cannot save, err: "+err);
+			}
+			else{
+				res.status(201).send("new place created");
+			}
+		});
+	}
+});
+
+//read place data
+app.get('/admin/places', function(req, res){
+	var str = "Place(s) in the database: <br><br>";
+	Place.find().populate("comment").exec(
+		function(err, results){
+			if(results.length > 0){
+				for (var i = 0; i < results.length; i++)
+				{
+					str +=
+					"Place name: " + results[i].name + "<br>"+
+					"Place latitude: " + results[i].latitude + "<br>"
+					"Place longitude: " + results[i].longitude + "<br>"
+					"Place waitTime: " + results[i].waitTime + "<br>"
+					"Place updateTime: " + results[i].updateTime + "<br>"
+					"Place comment: " + results[i].comment + "<br> <br>";
+				}
+				res.send(str);
+			}
+		}
+	)
+});
+
+//Update the place data
+app.post("/admin/update", function(req, res){
+	var new_place = new Place({
+		name: req.body.name,
+		latitude: req.body.latitude,
+		longitude: req.body.longitude,
+		waitTime: req.body.waitTime,
+		updateTime: req.body.updateTime,
+		comment: req.body.comment
+	});
+	Place.findOneAndUpdate(
+		{ name: req.body.name}, new_place, function(err){
+			if (err){
+				console.log("update error: "+ err);
+			}
+			else{
+				res.send("Update of " + req.boby.name + " success.");
+			}
+		})
+});
+
+//Delete the place data
+app.post("/admin/delete#placename", function(req, res){
+	Place.findOneAndDelete({name: req.params["placename"]}, function(err){
+		if (err) {
+			res.send("delete error: "+ err);
+		}
+		else{
+			res.send("Delete of " + req.params["placename"] + " success.");
+		}
+	})
+})
 
 // listen to port x
 const server = app.listen(2009);
