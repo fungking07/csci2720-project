@@ -1,6 +1,7 @@
 const express = require('express');
 const app = express();
 const fetch = require('node-fetch');
+const cors = require("cors");
 var bodyParser = require('body-parser');
 app.use(bodyParser.urlencoded({extended:false}));
 app.use(bodyParser.json());
@@ -66,6 +67,9 @@ var Place = mongoose.model('Place', placeSchema);
 var User = mongoose.model('User', userSchema);
 var Comment = mongoose.model('Comment', commentSchema);
 
+//allow cors
+app.use(cors());
+
 //load the data from hospAPI and store them in database at the first time
 app.get('/init', function(req,res) {
 	let hospAPI = "http://www.ha.org.hk/opendata/aed/aedwtdata-en.json";
@@ -118,6 +122,23 @@ app.get('/update', function(req,res) {
 		});
 });
 
+//fetch the data from database to frontend
+//also for searching in form of /loaddata?field=XXXXX?searchItem=XXXXX
+app.get("/loaddata",function(req,res){
+	let searchQuery = {};
+	if (req.query["field"]&&req.query["searchItem"])
+		searchQuery[req.query["field"]] = req.query["searchItem"];
+	Place.find(searchQuery,"name longitude latitude waitTime").exec(
+		function(err,e){
+			if (err){
+				res.send("Fail to fetch data from database!");
+			}
+			else{
+				res.json(e);
+			}
+		}
+	)
+})
 //test adding comment under places 
 app.get('/comment', function(req,res) {
 	//hardcode p here, may parse from body later
