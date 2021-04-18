@@ -30,7 +30,6 @@ gps_dictionary={
 };
 
 var mongoose = require('mongoose');
-const { SSL_OP_SSLEAY_080_CLIENT_DH_BUG } = require('node:constants');
 var Schema = mongoose.Schema;
 mongoose.connect('mongodb://s1155095200:x08938@localhost/s1155095200');
 
@@ -47,6 +46,7 @@ var userSchema = Schema({
 	password: { type: String, required: true },//need to fulfill hash later
 	favorite: [{ type: Schema.Types.ObjectId, ref: 'Place' }],
 	comment: [{ type: Schema.Types.ObjectId, ref: 'Comment' }],
+	isAdmin: [{ type: Boolean}]
 });
 
 var placeSchema = Schema({
@@ -146,26 +146,16 @@ app.get('/comment', function(req,res) {
 //Create place data
 app.post('/admin/addplace', function(req, res){
 	if (req.body.name == null){
-		res.send("name cnot be empty.");
+		res.send("name cannot be empty.");
 	}
 	else{
-		var new_comment = new Comment({
-			comment: null
-		});
-		new_comment.save(function(err)
-		{
-			if(err){
-				console.log("new comment err: "+ err);
-			}
-		});
-
 		var new_place = new Place({
 			name: req.body.name,
 			latitude: req.body.latitude,
 			longitude: req.body.longitude,
 			waitTime: req.body.waitTime,
 			updateTime: req.body.updateTime,
-			comment: new_comment
+			comment: null
 		});
 		new_place.save(function(err)
 		{
@@ -188,21 +178,23 @@ app.get('/admin/places', function(req, res){
 				for (var i = 0; i < results.length; i++)
 				{
 					str +=
-					"Place name: " + results[i].name + "<br>"+
-					"Place latitude: " + results[i].latitude + "<br>"
-					"Place longitude: " + results[i].longitude + "<br>"
-					"Place waitTime: " + results[i].waitTime + "<br>"
-					"Place updateTime: " + results[i].updateTime + "<br>"
-					"Place comment: " + results[i].comment + "<br> <br>";
+					"Place name: " + results[i].name + "<br>" +
+					"Place latitude: " + results[i].latitude + "<br>" +
+					"Place longitude: " + results[i].longitude + "<br>" +
+					"Place waitTime: " + results[i].waitTime + "<br>" +
+					"Place updateTime: " + results[i].updateTime + "<br>" +
+					/*user comment is push*/
+					"Place comment: " + results[i].comment.content + "<br> <br>";
 				}
 				res.send(str);
 			}
 		}
-	)
+	);
 });
 
 //Update the place data
 app.post("/admin/update", function(req, res){
+	
 	var new_place = new Place({
 		name: req.body.name,
 		latitude: req.body.latitude,
@@ -219,7 +211,7 @@ app.post("/admin/update", function(req, res){
 			else{
 				res.send("Update of " + req.boby.name + " success.");
 			}
-		})
+		});
 });
 
 //Delete the place data
@@ -233,6 +225,121 @@ app.post("/admin/delete#placename", function(req, res){
 		}
 	})
 })
+
+//CRUD user data
+//name password favorite comment isAdmin
+//Create user data
+app.post('/admin/adduser', function (req, res) {
+	if (req.body.name == null) {
+		res.send("name cannot be empty.");
+	}
+	else if (req.body.password == null) {
+		res.send("password cannot be empty.");
+	}
+	else {
+		var new_user = new User({
+			name: req.body.name,
+			password: req.body.password,
+			favorite: null,
+			comment: null,
+			isAdmin: false
+		});
+		new_user.save(function (err) {
+			if (err) {
+				console.log("new user cannot save, err: " + err);
+			}
+			else {
+				res.status(201).send("new user created");
+			}
+		});
+	}
+});
+//read users data
+//name password favorite comment isAdmin
+app.get('/admin/users', function (req, res) {
+	var str = "user(s) in the database: <br><br>";
+	User.find({isAdmin: false}).populate("Comment").populate("Place").exec(
+		function (err, results) {
+			if (results.length > 0) {
+				for (var i = 0; i < results.length; i++) {
+					str +=
+						"User name: " + results[i].name + "<br>" +
+						"User password: " + results[i].password + "<br>" +
+						/* user favorite is places, place name is called */
+						"User favorite: " + results[i].favorite.name + "<br>" +
+						/*user comment is push*/
+						"User comments: " + results[i].comments.content + "<br>" +
+						"User updateTime: " + results[i].updateTime + "<br>"
+				}
+				res.send(str);
+			}
+		}
+	)
+});
+
+//Update the users data
+app.post("/admin/updateUser", function (req, res) {
+	if(req.body.favorite != null)
+	{
+		Place.findOne(
+			{name: req.body.favorite}, function(err, placeres)
+			{
+				if(placeres == null){
+					console.log("error: no such place in database");
+				}
+				else{
+					var new_user = new User({
+						name: req.body.name,
+						password: req.body.password,
+						favorite: placeres,
+						comment: req.body.Comment,
+						isAdmin: false
+					});
+					User.findOneAndUpdate(
+						{ name: req.body.name }, new_user, function (err) {
+							if (err) {
+								console.log("update error: " + err);
+							}
+							else {
+								res.send("Update of " + req.boby.name + " success.");
+							}
+						});
+				}
+			}
+		);
+	}else{
+
+		var new_user = new User({
+			name: req.body.name,
+			password: req.body.password,
+			favorite: null,
+			comment: req.body.Comment,
+			isAdmin: false
+		});
+		User.findOneAndUpdate(
+			{ name: req.body.name }, new_user, function (err) {
+				if (err) {
+					console.log("update error: " + err);
+				}
+				else {
+					res.send("Update of " + req.boby.name + " success.");
+				}
+			});
+		}
+});
+
+//Delete the user data
+app.post("/admin/delete#username", function (req, res) {
+	Place.findOneAndDelete({ name: req.params["username"] }, function (err) {
+		if (err) {
+			res.send("delete error: " + err);
+		}
+		else {
+			res.send("Delete of " + req.params["username"] + " success.");
+		}
+	})
+})
+
 
 // listen to port x
 const server = app.listen(2009);
