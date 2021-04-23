@@ -69,7 +69,7 @@ var Comment = mongoose.model('Comment', commentSchema);
 
 //load the data from hospAPI and store them in database at the first time
 app.get('/init', function(req,res) {
-	let hospAPI = "http://www.ha.org.hk/opendata/aed/aedwtdata-en.send";
+	let hospAPI = "http://www.ha.org.hk/opendata/aed/aedwtdata-en.json";
 	let settings = { method: "Get" };
 	// fetch hospData through HospAPI
 	fetch(hospAPI, settings)
@@ -78,6 +78,7 @@ app.get('/init', function(req,res) {
 	    	//console.log(json["updateTime"]);
 	    	json["waitTime"].forEach((item)=>{
 	    		//console.log(item.hospName+" "+ item.topWait.match(/\d+/)[0]+"\n");		
+				//wait time will change to array
 	    		Place.create({
 	    			name:item.hospName,
 	    			latitude: gps_dictionary[item.hospName][0],
@@ -95,7 +96,7 @@ app.get('/init', function(req,res) {
 
 //reload and update the data stored in database after first time
 app.get('/update', function(req,res) {
-	let hospAPI = "http://www.ha.org.hk/opendata/aed/aedwtdata-en.send";
+	let hospAPI = "http://www.ha.org.hk/opendata/aed/aedwtdata-en.json";
 	let settings = { method: "Get" };
 
 	fetch(hospAPI, settings)
@@ -108,6 +109,8 @@ app.get('/update', function(req,res) {
 			Place.findOne( conditions, function( err, place ) {
 			if (err) return handleError(err);
 			if (place != null) {
+				//clear up wait time
+				//push wait time here
 					place.waitTime = Number(item.topWait.match(/\d+/)[0]);
 					place.updateTime = 1;
 					place.save();
@@ -228,13 +231,13 @@ app.post("/admin/update", function(req, res){
 	} else if (req.body.latitude == "") {
 		res.send("Latitude cannot be empty.")
 	} else {
-	var new_place = new Place({
+	var new_place = {
 		name: req.body.name,
 		latitude: req.body.latitude,
 		longitude: req.body.longitude,
 		waitTime: req.body.waitTime,
 		updateTime: req.body.updateTime
-	});
+	};
 	Place.findOneAndUpdate(
 		{ name: req.body.name}, new_place, function(err, Place){
 			if (err){
@@ -244,7 +247,7 @@ app.post("/admin/update", function(req, res){
 				res.send(req.body.name + " is not found.");
 			}
 			else{
-				res.send("Update of " + req.boby.name + " success.");
+				res.send("Update of " + req.body.name + " success.");
 			}
 		});
 	}
@@ -285,7 +288,6 @@ app.post('/admin/adduser', function (req, res) {
 				var new_user = new User({
 					name: req.body.name,
 					password: req.body.password,
-					favorite: null,
 					isAdmin: false
 				});
 				new_user.save(function (err) {
@@ -306,7 +308,7 @@ app.post('/admin/adduser', function (req, res) {
 //name password favorite comment isAdmin
 app.get('/admin/users', function (req, res) {
 	var str = "user(s) in the database: <br><br>";
-	User.find({isAdmin: false}).populate("Place").exec(
+	User.find({isAdmin: false}).populate("favorite").exec(
 		function (err, results) {
 			if (err){res.send(err);}
 			else if(results.length )
@@ -314,10 +316,16 @@ app.get('/admin/users', function (req, res) {
 				for (var i = 0; i < results.length; i++) {
 					str +=
 						"User name: " + results[i].name + "<br>" +
-						"User password: " + results[i].password + "<br>" +
-						/* user favorite is places, place name is called */
-						"User favorite: " + results[i].favorite.name + "<br>" +
-						"User updateTime: " + results[i].updateTime + "<br>"
+						"User password: " + results[i].password + "<br>";
+					if (results[i].favorite.length != 0){
+						for (var j = 0; j < results[i].favorite.length; j++){
+							str += "User favorite: " + results[i].favorite[j].name + "<br>";
+						}
+					}
+					else{
+						str += "NO favourite place for this user.";
+					}
+					str += "User updateTime: " + results[i].updateTime + "<br>";
 				}
 				res.send(str);
 			}
@@ -337,12 +345,12 @@ app.post("/admin/updateUser", function (req, res) {
 				}
 				else{
 					//favorite should be push
-					var new_user = new User({
+					var new_user = {
 						name: req.body.name,
 						password: req.body.password,
 						favorite: placeres,
 						isAdmin: false
-					});
+					};
 					User.findOneAndUpdate(
 						{ name: req.body.name }, new_user, function (err, user) {
 							if (err) {
@@ -351,7 +359,7 @@ app.post("/admin/updateUser", function (req, res) {
 							else if(!user){
 								res.send("User "+req.body.name+ " do not exist in db. Cannot update.");
 							} else {
-								res.send("Update of " + req.boby.name + " success.");
+								res.send("Update of " + req.body.name + " success.");
 							}
 						});
 				}
@@ -359,12 +367,12 @@ app.post("/admin/updateUser", function (req, res) {
 		);
 	}else{
 
-		var new_user = new User({
+		var new_user = {
 			name: req.body.name,
 			password: req.body.password,
 			favorite: null,
 			isAdmin: false
-		});
+		};
 		User.findOneAndUpdate(
 			{ name: req.body.name }, new_user, function (err) {
 				if (err) {
@@ -373,7 +381,7 @@ app.post("/admin/updateUser", function (req, res) {
 					res.send("User " + req.body.name + " do not exist in db. Cannot update.");
 				}
 				else {
-					res.send("Update of " + req.boby.name + " success.");
+					res.send("Update of " + req.body.name + " success.");
 				}
 			});
 		}
@@ -393,6 +401,84 @@ app.post("/admin/deleteUser", function (req, res) {
 	})
 })
 
+//Client function
+
+//list all place name
+app.get("places", function (req, res)
+{
+	Place.find().exec(
+		function(err, places)
+		{
+			var str = "places: <br>"
+			if (places.length == 0){
+				res.json("NO place in database");
+			}else {
+				for (var i = 0; i < places.length; i++)
+				{
+					str += places[i].name + "<br>";
+				}
+				res.json(str);
+			}
+		}
+	);
+});
+
+//add current place to user's favorite
+app.post("/user/addfavorite", function (req, res)
+{
+	if (req.body.favorite != null & req.body.username != null)
+	{
+		User.findOne({name: req.body.username}).populate("favorite").exec(
+			function(err, user)
+			{
+				if (user == null){
+					res.send("no such user");
+				}else{
+					Place.findOne({name: req.body.favorite}).populate("comment").exec(
+						function(err, place)
+						{
+							if (place == null){
+								res.send("no such place");
+							}else{
+								user.favorite.push(place);
+								user.save();
+								//console.log("favourite" + user.favorite );
+								res.send("Your favourite place is saved");
+							}
+						}
+					);
+				}
+			}
+		);
+	}
+});
+
+//add new comment to place
+app.post("/addComment", function(req, res)
+{
+	if (req.body.comment != null || req.body.place != null)
+	{
+		var new_comment = new Comment({
+			author: req.body.user,
+			content: req.body.comment
+		});
+		Comment.create(new_comment, function(err, comment){
+			if(err) {res.send(err);}
+			else{
+				Place.findOne({name: req.body.place}).populate("comment").exec(
+					function(err, place){
+						if (err) { res.send(err); }
+						else {
+							place.comment.push(comment);
+							place.save();
+							res.send("Your comment is savad");
+						}
+					}
+				);
+			}
+		});
+	}
+});
 
 // listen to port x
 const server = app.listen(2009);
