@@ -523,7 +523,7 @@ var url = "http://csci2720-g49.cse.cuhk.edu.hk"
     }
     handleDelete(event){
       event.preventDefault();
-      axios.post(url+"/admin/deleteplaces",{name:this.state.name})
+      axios.post(url+"/admin/deleteplace",{name:this.state.name})
       .then(res=>{
         this.setState({stm:res.data,submitted:1});
         setTimeout(()=>{this.setState({submitted:0})},2000);
@@ -695,7 +695,7 @@ var url = "http://csci2720-g49.cse.cuhk.edu.hk"
     }
     handleDelete(event){
       event.preventDefault();
-      axios.post(url+"/admin/deleteUser",{username:this.state.name})
+      axios.post(url+"/admin/deleteUser",{name:this.state.name})
       .then(res=>{
         this.setState({stm:res.data,submitted:1});
         setTimeout(()=>{this.setState({submitted:0})},2000);

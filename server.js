@@ -31,7 +31,6 @@ gps_dictionary={
 };
 
 var mongoose = require('mongoose');
-const { read } = require('node:fs');
 var Schema = mongoose.Schema;
 mongoose.connect('mongodb://s1155095200:x08938@localhost/s1155095200');
 
@@ -191,6 +190,7 @@ app.post('/admin/addplace', function(req, res){
 		{
 			if(err){
 				console.log("new place cannot save, err: "+err);
+				res.send("Fail to create new place");
 			}
 			else{
 				res.status(201).send("new place created");
@@ -227,8 +227,8 @@ app.get('/admin/place', function(req, res){
 						for (var j = 0; j < results[i].comment.length; j++) 
 						{
 							str +=
-								"Author: " + result[i].comment[j].author + "<br>" +
-								"Comment: " + result[i].comment[j].content + "<br>";
+								"Author: " + results[i].comment[j].author + "<br>" +
+								"Comment: " + results[i].comment[j].content + "<br>";
 						}
 					}else{
 						str += "NO comment for this place yet. <br>";
@@ -260,9 +260,10 @@ app.post("/admin/update", function(req, res){
 		updateTime: req.body.updateTime
 	};
 	Place.findOneAndUpdate(
-		{ name: req.body.name}, new_place, function(err, Place){
+		{ name: req.body.name}, new_place, function(err, place){
 			if (err){
 				console.log("update error: "+ err);
+				res.send("udpate error");
 			}
 			else if (!place){
 				res.send(req.body.name + " is not found.");
@@ -395,7 +396,7 @@ app.post("/admin/updateUser", function (req, res) {
 			isAdmin: false
 		};
 		User.findOneAndUpdate(
-			{ name: req.body.name }, new_user, function (err) {
+			{ name: req.body.name }, new_user, function (err,user) {
 				if (err) {
 					console.log("update error: " + err);
 				} else if (!user) {
