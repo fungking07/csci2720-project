@@ -222,7 +222,7 @@ app.get('/admin/place', function(req, res){
 					"Place updateTime: " + results[i].updateTime + "<br><br>" +
 					"Place comment: <br>";
 					/*user comment is push*/
-					if (results[i].comment != null)
+					if (results[i].comment.length !=0)
 					{
 						for (var j = 0; j < results[i].comment.length; j++) 
 						{
