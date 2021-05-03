@@ -67,6 +67,68 @@ var Place = mongoose.model('Place', placeSchema);
 var User = mongoose.model('User', userSchema);
 var Comment = mongoose.model('Comment', commentSchema);
 
+function getSevenDays()
+{
+    let date = new Date("2021/1/5");
+    var linkArray = ["http://www.ha.org.hk/opendata/aed/aedwtdata-en.json"];
+
+    var yr = date.getFullYear().toString();
+    var mth = (((date.getMonth() + 1).toString().length < 2) ? "0" + (date.getMonth() + 1).toString() : (date.getMonth() + 1).toString())
+    var prv_mth = (((date.getMonth()).toString().length < 2) ? "0" + (date.getMonth()).toString() : (date.getMonth()).toString())
+    if(prv_mth == "00")
+    {
+        prv_mth = "12";
+    }
+    var day = date.getDate().toString();
+    var hrs = ((date.getHours().toString().length < 2) ? "0" + date.getHours().toString() : date.getHours().toString());
+
+    if(!(date.getFullYear() % 4))
+    {
+        var month_date = {"0":31, "1":31, "2":29, "3": 31, "4": 30, "5":31, "6":30, "7": 31, "8": 31, "9":30, "10": 31, "11": 30, "12": 31};
+    }
+    else
+    {
+        var month_date = {"0":31, "1":31, "2":28, "3": 31, "4": 30, "5":31, "6":30, "7": 31, "8": 31, "9":30, "10": 31, "11": 30, "12": 31};
+    }
+
+
+    if(date.getMinutes() >= 0 && date.getMinutes() < 15)
+    {   
+        for(var i = 1; i < 7; i++)
+        {
+            linkArray[i] = "https://api.data.gov.hk/v1/historical-archive/get-file?url=http%3A%2F%2Fwww.ha.org.hk%2Fopendata%2Faed%2Faedwtdata-en.json&time=" + 
+                           (((day - i) < 1 && date.getMonth() == 0 ) ? (date.getFullYear() - 1).toString() : yr) + (((day - i) < 1) ? prv_mth : mth) + (((day - i) < 1) ? month_date[date.getMonth().toString()] + (day - i) : ((day - i).toString().length < 2 ? "0" + (day - i).toString() : (day - i).toString())) + "-" + hrs + "00";
+        }
+    }
+    else if(date.getMinutes() >= 15 && date.getMinutes() < 30)
+    {
+        for(var i = 1; i < 7; i++)
+        {
+            linkArray[i] = "https://api.data.gov.hk/v1/historical-archive/get-file?url=http%3A%2F%2Fwww.ha.org.hk%2Fopendata%2Faed%2Faedwtdata-en.json&time=" + 
+                           (((day - i) < 1 && date.getMonth() == 0) ? (date.getFullYear() - 1).toString() : yr) + (((day - i) < 1) ? prv_mth : mth) + (((day - i) < 1) ? month_date[date.getMonth().toString()] + (day - i) : ((day - i).toString().length < 2 ? "0" + (day - i).toString() : (day - i).toString())) + "-" + hrs + "15";
+        }
+    }
+    else if(date.getMinutes() >= 30 && date.getMinutes() < 45)
+    {
+        for(var i = 1; i < 7; i++)
+        {
+            linkArray[i] = "https://api.data.gov.hk/v1/historical-archive/get-file?url=http%3A%2F%2Fwww.ha.org.hk%2Fopendata%2Faed%2Faedwtdata-en.json&time=" + 
+                           (((day - i) < 1 && date.getMonth() == 0) ? (date.getFullYear() - 1).toString() : yr) + (((day - i) < 1) ? prv_mth : mth) + (((day - i) < 1) ? month_date[date.getMonth().toString()] + (day - i) : ((day - i).toString().length < 2 ? "0" + (day - i).toString() : (day - i).toString())) + "-" + hrs + "30";
+        }
+    }
+    else if(date.getMinutes() >= 45 && date.getMinutes() < 60)
+    {
+        
+        for(var i = 1; i < 7; i++)
+        {
+            linkArray[i] = "https://api.data.gov.hk/v1/historical-archive/get-file?url=http%3A%2F%2Fwww.ha.org.hk%2Fopendata%2Faed%2Faedwtdata-en.json&time=" + 
+                           (((day - i) < 1 && date.getMonth() == 0) ? (date.getFullYear() - 1).toString() : yr) + (((day - i) < 1) ? prv_mth : mth) + (((day - i) < 1) ? month_date[date.getMonth().toString()] + (day - i) : ((day - i).toString().length < 2 ? "0" + (day - i).toString() : (day - i).toString())) + "-" + hrs  + "45";
+        }
+    }
+
+    return linkArray;
+}
+
 //allow cors
 app.use(cors());
 
