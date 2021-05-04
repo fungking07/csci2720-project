@@ -2,6 +2,7 @@ const express = require('express');
 const app = express();
 const fetch = require('node-fetch');
 const cors = require("cors");
+const moment = require("moment");
 var bodyParser = require('body-parser');
 app.use(bodyParser.urlencoded({extended:false}));
 app.use(bodyParser.json());
@@ -46,6 +47,7 @@ var userSchema = Schema({
 	name: { type: String, required: true, unique: true },
 	password: { type: String, required: true },//need to fulfill hash later
 	favorite: [{ type: Schema.Types.ObjectId, ref: 'Place' }],
+	comment: [{ type: Schema.Types.ObjectId, ref: 'Comment' }],
 	isAdmin: [{ type: Boolean}]
 });
 
@@ -54,14 +56,16 @@ var placeSchema = Schema({
 	latitude: { type: Number, required: true },
 	longitude: { type: Number, required: true },
 	waitTime: { type: Number, required: true },
-	updateTime: { type: Number, required: true },
+	SevenDaysTime:[{type:Number}],
+	TenHourTime:[{type:Number}],
+	updateTime: { type: String, required: true },
 	comment: [{ type: Schema.Types.ObjectId, ref: 'Comment' }]
 });
 
 var commentSchema = Schema({
-	author: { type: String, required: true},
-	content: { type: String, required: true}
+	content: { type: String, required: true},
 });
+
 
 var Place = mongoose.model('Place', placeSchema);
 var User = mongoose.model('User', userSchema);
@@ -69,6 +73,94 @@ var Comment = mongoose.model('Comment', commentSchema);
 
 //allow cors
 app.use(cors());
+
+async function fetchSevenDayData(str,hosp){
+	var date = []
+	var waitTime = []
+	var data = []
+	// date sort from latest to oldest using library --Moment 
+	//the addition of 15 minutes is due to the delay report from the website, url/20210503-1800 record data for 17:45
+	for(i = 1 ; i<8;i++){
+		date.push(moment(str,"DD/MM/YYYY hh:mmA").subtract(i,'days').add(15,'minutes').format("YYYYMMDD-HHmm"));
+	}
+	// fail to sort the date in ascending order 
+	const promises = date.map(
+			id =>fetch("https://api.data.gov.hk/v1/historical-archive/get-file?url=http%3A%2F%2Fwww.ha.org.hk%2Fopendata%2Faed%2Faedwtdata-en.json&time="+id,{method:"get"})
+			.then(res=>res.json())
+			.then((json)=>{
+				json["waitTime"].forEach((item)=>{
+					if (item.hospName == hosp){
+						data.push(moment(json['updateTime'],"DD/MM/YYYY hh:mmA").format("YYYYMMDD")+":"+Number(item.topWait.match(/\d+/)[0]))
+					}
+				})
+			})
+	)
+	// Promise all is used to allow parallel fetching
+	await Promise.all(promises)
+	.then(() =>{
+		//stupid way to sort the waitTime by date order see if there are better method
+		data = data.sort();
+		for (i = 0; i<data.length;i++){
+			waitTime.push(data[i].split(":",)[1])
+		}
+		var conditions = { name: hosp };
+			Place.findOne( conditions, function( err, place ) {
+			if (err) return handleError(err);
+				if (place != null) {
+					place.SevenDaysTime = waitTime;
+					place.save();
+				}
+			}
+		)}
+)}
+
+async function fetchTenHourData(str,hosp){
+	var date = []
+	var waitTime = []
+	var data = []
+	// date sort from latest to oldest using library --Moment 
+	//the addition of 15 minutes is due to the delay report from the website, url/20210503-1800 record data for 17:45
+	for(i = 1 ; i<11;i++){
+		date.push(moment(str,"DD/MM/YYYY hh:mmA").subtract(i,'hours').add(15,'minutes').format("YYYYMMDD-HHmm"));
+	}
+
+	// fail to sort the date in ascending order 
+	const promises = date.map(
+			id =>fetch("https://api.data.gov.hk/v1/historical-archive/get-file?url=http%3A%2F%2Fwww.ha.org.hk%2Fopendata%2Faed%2Faedwtdata-en.json&time="+id,{method:"get"})
+			.then(res=>res.json())
+			.then((json)=>{
+				json["waitTime"].forEach((item)=>{
+					if (item.hospName == hosp){
+						data.push(moment(json['updateTime'],"DD/MM/YYYY hh:mmA").format("YYYYMMDD-HHmm")+":"+Number(item.topWait.match(/\d+/)[0]))
+					}
+				})
+			})
+	)
+	// Promise all is used to allow parallel fetching
+	await Promise.all(promises)
+	.then(() =>{
+		//stupid way to sort the waitTime by date order see if there are better method
+		data = data.sort();
+		for (i = 0; i<data.length;i++){
+			waitTime.push(data[i].split(":",)[1])
+		}
+		console.log(data);
+		var conditions = { name: hosp };
+			Place.findOne( conditions, function( err, place ) {
+			if (err) return handleError(err);
+				if (place != null) {
+					place.TenHourTime = waitTime;
+					place.save();
+				}
+			}
+		)}
+)}
+
+async function fetchPastData(str,hosp){
+	await fetchSevenDayData(str,hosp);
+	await fetchTenHourData(str,hosp);
+}
+
 
 //load the data from hospAPI and store them in database at the first time
 app.get('/init', function(req,res) {
@@ -81,17 +173,18 @@ app.get('/init', function(req,res) {
 	    	//console.log(json["updateTime"]);
 	    	json["waitTime"].forEach((item)=>{
 	    		//console.log(item.hospName+" "+ item.topWait.match(/\d+/)[0]+"\n");		
-				//wait time will change to array
 	    		Place.create({
 	    			name:item.hospName,
 	    			latitude: gps_dictionary[item.hospName][0],
 	    			longitude: gps_dictionary[item.hospName][1],
 	    			waitTime: Number(item.topWait.match(/\d+/)[0]),
-	    			updateTime: 0
+	    			updateTime: json["updateTime"]
 	    		},function (err, place) {
-	    			if (err) return handleError(err);
+	    			if (err) {console.log(err)}
+					else{
+						fetchPastData(json["updateTime"],item.hospName)
+					}
 	    		})
-	    		
 	    	});
 		   res.send("Init successfully!");
 		});
@@ -105,25 +198,26 @@ app.get('/update', function(req,res) {
 	fetch(hospAPI, settings)
 	    .then(res => res.json())
 	    .then((json) => {
-	    	//console.log(json["updateTime"]);
-	    	json["waitTime"].forEach((item)=>{
-	    		//console.log(item.hospName+" "+ item.topWait.match(/\d+/)[0]+"\n");		
+	    	json["waitTime"].forEach((item)=>{		
 			var conditions = { name: item.hospName };
 			Place.findOne( conditions, function( err, place ) {
 			if (err) return handleError(err);
 			if (place != null) {
-				//clear up wait time
-				//push wait time here
 					place.waitTime = Number(item.topWait.match(/\d+/)[0]);
-					place.updateTime = 1;
+					place.updateTime = json["updateTime"];
 					place.save();
+					fetchPastData(json["updateTime"],item.hospName);
 				}
 			})
 	    		
 	    	});
-		   res.send("Update successfully!");
+		   
+		}).then(()=>{
 		});
+		res.send("Update successfully!");
 });
+
+
 
 //fetch the data from database to frontend
 //also for searching in form of /loaddata?field=XXXXX?searchItem=XXXXX
