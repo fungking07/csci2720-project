@@ -150,9 +150,9 @@ var url = "http://csci2720-g48.cse.cuhk.edu.hk"
           zoom: 12,
           center: centerLocation
         });
-        console.log(this.props.data.length);
+        // console.log(this.props.data.length);
         for(var i = 0; i < this.props.data.length; i++){
-          console.log("Marker",this.props.data[i].latitude , this.props.data[i].longitude);
+          // console.log("Marker",this.props.data[i].latitude , this.props.data[i].longitude);
           var markerLoc = {lat: this.props.data[i].latitude, lng: this.props.data[i].longitude};
           var marker = new google.maps.Marker({
             label: this.props.data[i].name,
