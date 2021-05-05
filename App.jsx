@@ -2,7 +2,8 @@ const {BrowserRouter, Link, Route, Switch, Redirect} = ReactRouterDOM;
 const Router = BrowserRouter;
 const {useRouteMatch, useParams, useLocation} = ReactRouterDOM;
 
-//change the url here for ur own implementation
+//change the url here for ur own implementation 
+//important dont delete it 
 var url = "http://csci2720-g49.cse.cuhk.edu.hk"
   
   function LongLink({label, to, activeOnlyWhenExact}) {
@@ -69,7 +70,7 @@ var url = "http://csci2720-g49.cse.cuhk.edu.hk"
       return(
         <>
         {this.props.data.length>0 &&(
-          <table className="text-center table">
+          <table className="text-left table">
             <thead>
               <tr>
                 <th>
@@ -228,6 +229,7 @@ var url = "http://csci2720-g49.cse.cuhk.edu.hk"
       .then(response => response.json())
       .then(data=> {
         this.setState({data});
+        console.log(this.state.data["SevenDaysTime"]);
         this.drawChart();
         })
     }
@@ -237,11 +239,11 @@ var url = "http://csci2720-g49.cse.cuhk.edu.hk"
       //cal vlue of the x axias label from the given update Time 
       var pastSevenDay = [];
       var pastTenHour = [];
-      for(var i = 10 ; i>0;i--){
-        pastTenHour.push(moment(this.state.data['updateTime'],"DD/MM/YYYY hh:mmA").subtract(i,'hours').add(15,'minutes').format("HH:mm"));
+      for(var i = 9 ; i>=0;i--){
+        pastTenHour.push(moment(this.state.data['updateTime'],"DD/MM/YYYY hh:mmA").subtract(i,'hours').format("HH:mm"));
       }
-      for(var j = 7 ; j>0;j--){
-        pastSevenDay.push(moment(this.state.data["updateTime"],"DD/MM/YYYY hh:mmA").subtract(j,'days').add(15,'minutes').format("MM/DD"));
+      for(var j = 6 ; j>=0;j--){
+        pastSevenDay.push(moment(this.state.data["updateTime"],"DD/MM/YYYY hh:mmA").subtract(j,'days').format("MM/DD"));
       }
 
       var ctx = document.getElementById("sevenDay");
@@ -376,7 +378,7 @@ var url = "http://csci2720-g49.cse.cuhk.edu.hk"
     }
   }
   
-  {/* Need to be implemented */}
+  {/* showing google Map NOT YET DONE */}
   class ShowAvailable extends React.Component {
     render() {
       return (
@@ -387,7 +389,7 @@ var url = "http://csci2720-g49.cse.cuhk.edu.hk"
     }
   }
 
-  {/*Searching [In process]*/ }
+  {/*Searching */ }
   class Search extends React.Component {
     constructor(props){
       super(props);
@@ -471,7 +473,7 @@ var url = "http://csci2720-g49.cse.cuhk.edu.hk"
     }
 
   }
-  //refresh[done]
+  //refresh place in admin 
   class Refresh extends React.Component{
     constructor(props){
       super(props);
@@ -634,9 +636,14 @@ var url = "http://csci2720-g49.cse.cuhk.edu.hk"
     }
     changeItem(event,item){
       event.preventDefault();
-      let copyinfo = this.state.info
+      let copyinfo = this.state.info;
       copyinfo[item] = event.target.value;
       this.setState({info:copyinfo})
+    }
+    clickbutton(){
+      let copyinfo = this.state.info;
+      copyinfo["updateTime"] = moment().format("DD/MM/YYYY hh:mmA");
+      this.setState({info:copyinfo});
     }
     render(){
       return(
@@ -659,11 +666,7 @@ var url = "http://csci2720-g49.cse.cuhk.edu.hk"
             <input type="text" onChange={(event)=>this.changeItem(event,"waitTime")}></input>
           </label>
           <br/>
-          <label> Update Time 
-            <input type="text" onChange={(event)=>this.changeItem(event,"udpateTime")}></input>
-          </label>
-          <br/>
-          <button type="submit">Submit</button>
+          <button type="submit" onClick = {()=>this.clickbutton()}>Submit</button>
         </form>
         {this.state.submitted==1 &&<p>{this.state.stm}</p>}
         </>
@@ -680,7 +683,7 @@ var url = "http://csci2720-g49.cse.cuhk.edu.hk"
     }
     changePlace(event){
       this.setState({name: event.target.value});
-      console.log(this.state.name);
+      //console.log(this.state.name);
     }
     handleDelete(event){
       event.preventDefault();
@@ -911,7 +914,6 @@ var url = "http://csci2720-g49.cse.cuhk.edu.hk"
       )
     }
   }
-
 
   class App extends React.Component {
     render() {

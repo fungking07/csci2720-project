@@ -44,7 +44,8 @@ console.log("Connection is open...");
 });
 
 var userSchema = Schema({
-	name: { type: String, required: true, unique: true },
+	id: {type:String, required:true,unique: true},
+	name: { type: String, required: true, unique: true},
 	password: { type: String, required: true },//need to fulfill hash later
 	favorite: [{ type: Schema.Types.ObjectId, ref: 'Place' }],
 	comment: [{ type: Schema.Types.ObjectId, ref: 'Comment' }],
@@ -80,7 +81,7 @@ async function fetchSevenDayData(str,hosp){
 	var data = []
 	// date sort from latest to oldest using library --Moment 
 	//the addition of 15 minutes is due to the delay report from the website, url/20210503-1800 record data for 17:45
-	for(i = 1 ; i<8;i++){
+	for(i = 1 ; i<7;i++){
 		date.push(moment(str,"DD/MM/YYYY hh:mmA").subtract(i,'days').add(15,'minutes').format("YYYYMMDD-HHmm"));
 	}
 	// fail to sort the date in ascending order 
@@ -94,17 +95,24 @@ async function fetchSevenDayData(str,hosp){
 					}
 				})
 			})
-	)
+		)
 	// Promise all is used to allow parallel fetching
 	await Promise.all(promises)
 	.then(() =>{
 		//stupid way to sort the waitTime by date order see if there are better method
-		//ascending order
 		data = data.sort();
 		for (i = 0; i<data.length;i++){
 			waitTime.push(data[i].split(":",)[1])
 		}
-		var conditions = { name: hosp };
+		fetch("http://www.ha.org.hk/opendata/aed/aedwtdata-en.json",{ method: "Get" })
+		.then(res => res.json())
+	    .then((json) => {
+			json["waitTime"].forEach((item)=>{
+				if (item.hospName == hosp){
+					waitTime.push(Number(item.topWait.match(/\d+/)[0]))
+				}
+			})
+			var conditions = { name: hosp };
 			Place.findOne( conditions, function( err, place ) {
 			if (err) return handleError(err);
 				if (place != null) {
@@ -113,6 +121,7 @@ async function fetchSevenDayData(str,hosp){
 				}
 			}
 		)}
+	)}
 )}
 
 async function fetchTenHourData(str,hosp){
@@ -121,7 +130,7 @@ async function fetchTenHourData(str,hosp){
 	var data = []
 	// date sort from latest to oldest using library --Moment 
 	//the addition of 15 minutes is due to the delay report from the website, url/20210503-1800 record data for 17:45
-	for(i = 1 ; i<11;i++){
+	for(i = 1 ; i<10;i++){
 		date.push(moment(str,"DD/MM/YYYY hh:mmA").subtract(i,'hours').add(15,'minutes').format("YYYYMMDD-HHmm"));
 	}
 
@@ -145,23 +154,31 @@ async function fetchTenHourData(str,hosp){
 		for (i = 0; i<data.length;i++){
 			waitTime.push(data[i].split(":",)[1])
 		}
-		console.log(data);
-		var conditions = { name: hosp };
+		
+		fetch("http://www.ha.org.hk/opendata/aed/aedwtdata-en.json",{ method: "Get" })
+		.then(res => res.json())
+	    .then((json) => {
+			json["waitTime"].forEach((item)=>{
+				if (item.hospName == hosp){
+					waitTime.push(Number(item.topWait.match(/\d+/)[0]))
+				}
+			})
+			var conditions = { name: hosp };
 			Place.findOne( conditions, function( err, place ) {
 			if (err) return handleError(err);
 				if (place != null) {
 					place.TenHourTime = waitTime;
 					place.save();
-				}
+			}
 			}
 		)}
+	)}
 )}
 
 async function fetchPastData(str,hosp){
 	await fetchSevenDayData(str,hosp);
 	await fetchTenHourData(str,hosp);
 }
-
 
 //load the data from hospAPI and store them in database at the first time
 app.get('/init', function(req,res) {
@@ -395,7 +412,7 @@ app.post("/admin/deleteplace", function(req, res){
 			res.send(req.body.name + " do not exist in db. Cannot delete.");
 		}
 		else{
-			res.send("Delete of " + req.params["placename"] + " success.");
+			res.send("Delete of " + req.body.name + " success.");
 		}
 	})
 })
@@ -406,17 +423,18 @@ app.post("/admin/deleteplace", function(req, res){
 app.post('/admin/adduser', function (req, res) {
 	if (req.body.name == null) {
 		res.send("name cannot be empty.");
-	}
+	} 
 	else if (req.body.password == null) {
 		res.send("password cannot be empty.");
 	}
 	else {
 		User.find({name: req.body.name}, function(err, user){
 			if (user.length> 0){
-				res.send("User name with "+ req.body.name + "already exist.");
+				res.send("User with id"+ req.body.name + "already exist.");
 			}
 			else{
 				var new_user = new User({
+					id: req.body.id,
 					name: req.body.name,
 					password: req.body.password,
 					isAdmin: false
@@ -456,7 +474,7 @@ app.get('/admin/users', function (req, res) {
 					else{
 						str += "NO favourite place for this user.";
 					}
-					str += "User updateTime: " + results[i].updateTime + "<br>";
+					// str += "User updateTime: " + results[i].updateTime + "<br>";
 				}
 				res.send(str);
 			}
