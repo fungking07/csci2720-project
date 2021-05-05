@@ -32,7 +32,7 @@ gps_dictionary={
 
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
-mongoose.connect('mongodb://s1155095200:x08938@localhost/s1155095200');
+mongoose.connect('mongodb://s1155110657:x21378@localhost/s1155110657');
 
 var db = mongoose.connection;
 // Upon connection failure
@@ -141,6 +141,29 @@ app.get("/loaddata",function(req,res){
 			}
 		}
 	)
+})
+
+//fetch the comment list from database to frontend
+app.get("/loadcomment", function(req,res){
+	var commentlist = [];
+	Place.findOne({name:req.query["searchItem"]}, "comment").populate("comment").exec(
+		function(err,result){
+			if (err){
+				res.send("Fail to fetch data from database!");
+				return;
+			}
+			else{
+				if(result.comment.length != 0)
+				{
+					for (var i = 0; i < result.comment.length; i++) 
+					{
+						commentlist.push([result.comment[i].author,result.comment[i].content]);
+					}
+				}
+				res.send(commentlist);
+			}	
+	})
+
 })
 //test adding comment under places 
 app.get('/comment', function(req,res) {
@@ -476,9 +499,9 @@ app.post("/user/addfavorite", function (req, res)
 });
 
 //add new comment to place
-app.post("/addComment", function(req, res)
-{
-	if (req.body.comment != null || req.body.place != null)
+app.post("/addcomment", function(req, res)
+{	
+	if (req.body.comment != "")
 	{
 		var new_comment = new Comment({
 			author: req.body.user,
@@ -503,4 +526,4 @@ app.post("/addComment", function(req, res)
 });
 
 // listen to port x
-const server = app.listen(2009);
+const server = app.listen(2048);
