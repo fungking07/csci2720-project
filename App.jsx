@@ -150,9 +150,7 @@ var url = "http://csci2720-g48.cse.cuhk.edu.hk"
           zoom: 12,
           center: centerLocation
         });
-        // console.log(this.props.data.length);
         for(var i = 0; i < this.props.data.length; i++){
-          // console.log("Marker",this.props.data[i].latitude , this.props.data[i].longitude);
           var markerLoc = {lat: this.props.data[i].latitude, lng: this.props.data[i].longitude};
           var marker = new google.maps.Marker({
             label: this.props.data[i].name,
@@ -165,7 +163,6 @@ var url = "http://csci2720-g48.cse.cuhk.edu.hk"
 			'click',
 			(function (marker, i) {
 			  return function () {
-				console.log(marker.label);
 				self.setState({place: marker.label});
 				self.setState({clickmark: 1});
 			  }
@@ -248,7 +245,6 @@ var url = "http://csci2720-g48.cse.cuhk.edu.hk"
   }
 
 	componentDidMount(){
-		console.log(this.props.place);
 		axios.get(url + "/loadcomment?searchItem="+ this.props.place)
 		.then(res =>{
 		  this.setState({data: res.data});
@@ -257,7 +253,6 @@ var url = "http://csci2720-g48.cse.cuhk.edu.hk"
     this.getplaceinfo();
 
 		this.getGoogleMaps().then((google) => {
-			console.log(this.state.placeinfo[0]);
 			var centerLocation = { lat: this.state.placeinfo[0].latitude, lng: this.state.placeinfo[0].longitude}; 
 			const map = new google.maps.Map(document.getElementById('map'), {
 			  zoom: 20,
