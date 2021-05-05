@@ -34,7 +34,7 @@ var url = "http://csci2720-g49.cse.cuhk.edu.hk"
    class Table extends React.Component{
     constructor(props){
       super(props);
-      this.state = {ordering:{name:0,latitude:0,longitude:0,waitTime:0}}; //save for the ordering 
+      this.state = {ordering:{name:0,latitude:0,longitude:0,waitTime:0,updateTime:0}}; //save for the ordering 
       
     }
     onSortChange(key){
@@ -84,15 +84,19 @@ var url = "http://csci2720-g49.cse.cuhk.edu.hk"
                 <th>
                   waiting Time<button className = "btn" onClick={()=>this.onSortChange("waitTime")}><span className={this.state.ordering["waitTime"]<0 ? "bi bi-sort-down":"bi bi-sort-up" }/></button>
                 </th>
+                <th>
+                  Last Update Time<button className = "btn" onClick={()=>this.onSortChange("udpateTime")}><span className={this.state.ordering["udpateTime"]<0 ? "bi bi-sort-down":"bi bi-sort-up" }/></button>
+                </th>
               </tr>
             </thead>
             <tbody>
             {this.props.data.map((hospital,index)=>
             <tr key = {index}>
-              <td>{hospital["name"]}</td>
+              <td><LongLink to={"/user/place/"+ hospital['name']} label={hospital['name']}/></td>
               <td>{hospital["latitude"]}</td>
               <td>{hospital["longitude"]}</td>
               <td>Over {hospital["waitTime"]} hours</td>
+              <td>{hospital["updateTime"]}</td>
             </tr>
             )}
             </tbody>
@@ -104,8 +108,6 @@ var url = "http://csci2720-g49.cse.cuhk.edu.hk"
       )
     }
   } 
-  
-  
   
   class Header extends React.Component {
   render() {
@@ -214,8 +216,166 @@ var url = "http://csci2720-g49.cse.cuhk.edu.hk"
       )
     }
   }
+  // holding the single page
+  class SinglePage extends React.Component{
+    constructor(props){
+      super(props);
+      this.state = {name:this.props.match.params.name,data:[]}
+    }
+    //fetch info of hosp when loading the page
+    componentDidMount(){
+      fetch(url + "/page/"+this.state.name)
+      .then(response => response.json())
+      .then(data=> {
+        this.setState({data});
+        this.drawChart();
+        })
+    }
 
+    // drawing the two graph
+    drawChart(){
+      //cal vlue of the x axias label from the given update Time 
+      var pastSevenDay = [];
+      var pastTenHour = [];
+      for(var i = 10 ; i>0;i--){
+        pastTenHour.push(moment(this.state.data['updateTime'],"DD/MM/YYYY hh:mmA").subtract(i,'hours').add(15,'minutes').format("HH:mm"));
+      }
+      for(var j = 7 ; j>0;j--){
+        pastSevenDay.push(moment(this.state.data["updateTime"],"DD/MM/YYYY hh:mmA").subtract(j,'days').add(15,'minutes').format("MM/DD"));
+      }
 
+      var ctx = document.getElementById("sevenDay");
+      var data = {
+          datasets: [{
+              data: this.state.data["SevenDaysTime"],
+              fill: false,
+              borderColor:"#f56954",
+              backgroundColor:"#F97070",
+              label: "Waiting Time",
+              tension:0.1
+          }],
+          labels: pastSevenDay
+      };
+      var SevenDayChart = new Chart(ctx, {
+          type: 'line',
+          data: data,
+          options: {
+              responsive: false,
+              maintainAspectRatio: false,
+              legend: {
+                  position: 'bottom',
+                  labels: {
+                      boxWidth: 12
+                  }
+                },
+              plugins:{
+                title:{
+                    display:true,
+                    text: "Waiting Time in This Hour of past 7 days"
+                }
+              },
+              scales: {
+                y: {
+                    suggestedMin: 0,
+                    suggestedMax: 10,
+                    title:{
+                      display:true,
+                      text:"hr"
+                    }
+                  },
+                  x: {
+                    title:{
+                      display:true,
+                      text:"Date"
+                    }
+                  }
+              }
+            }
+          }
+      );
+  
+      var ctx_2 = document.getElementById("tenHour");
+      var data_2 = {
+          datasets: [{
+              data: this.state.data["TenHourTime"],
+              fill: false,
+              borderColor:'#3c8dbc',
+              backgroundColor:"#5579F2",
+              label: "Waiting Time ",
+              tension:0.1
+          }],
+          labels: pastTenHour
+      };
+      var TenHourChart= new Chart(ctx_2, {
+          type: 'line',
+          data: data_2,
+          options: {
+            responsive: false,
+            maintainAspectRatio: false,
+            legend: {
+                position: 'bottom',
+                labels: {
+                    boxWidth: 12
+                }
+              },
+            plugins:{
+              title:{
+                  display:true,
+                  text: "Waiting Time in the Past 10 Hour"
+              }
+            },
+            scales: {
+              y: {
+                suggestedMin: 0,
+                suggestedMax: 10,
+                title:{
+                  display:true,
+                  text:"hr"
+                }
+              },
+              x: {
+                title:{
+                  display:true,
+                  text:"Time"
+                }
+              }
+            }
+          }
+        })
+      }
+      
+    render(){
+      return(
+        <div>
+          <h3>{this.state.name}</h3>
+          <div >
+            <p>Current waiting time: over { this.state.data["waitTime"]} hour</p>
+            <p>Last updated time: {this.state.data["updateTime"]}</p>
+          </div>
+          
+          <h4>Location</h4>
+          <p><b>latitude</b>: {this.state.data["latitude"]} <b>Longitude</b>: {this.state.data["latitude"]}</p>
+          
+          {/*Feel free to insert map conmponent here*/}
+
+          <h4>Data Chart</h4>
+          <div className = "container center">
+          <div>
+            <canvas id="sevenDay" width="400px" height="300px"></canvas>
+          </div>
+          <div>
+            <canvas id="tenHour" width="400px" height="300px"></canvas>
+          </div>
+          </div>
+
+          <h4>Comment</h4>
+          {/*Comment part here*/}
+        </div>
+        
+      )
+    }
+  }
+  
   {/* Need to be implemented */}
   class ShowAvailable extends React.Component {
     render() {
@@ -301,6 +461,7 @@ var url = "http://csci2720-g49.cse.cuhk.edu.hk"
               <Route exact path="/user/showavailable" component={ShowAvailable} />   
               <Route exact path="/user/search" component={Search} />
               <Route exact path="/admin" component={Admin} />
+              <Route path="/user/place/:name" component={SinglePage}/>
               <Route exact path="*" component={NoMatch} />
             </Switch>
             </div>

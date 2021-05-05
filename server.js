@@ -99,6 +99,7 @@ async function fetchSevenDayData(str,hosp){
 	await Promise.all(promises)
 	.then(() =>{
 		//stupid way to sort the waitTime by date order see if there are better method
+		//ascending order
 		data = data.sort();
 		for (i = 0; i<data.length;i++){
 			waitTime.push(data[i].split(":",)[1])
@@ -217,7 +218,21 @@ app.get('/update', function(req,res) {
 		res.send("Update successfully!");
 });
 
-
+//getting data for particular hospital
+app.get("/page/:name",function(req,res){
+	let hosp = req.params["name"]
+	Place.findOne({name:hosp}).populate('comment').exec(
+		function(err,e){
+			if(err){
+				res.send("Fail")
+			}else if (!e){
+				res.send("No Result")
+			}else{
+				res.json(e)
+			}
+		}	
+	)
+})
 
 //fetch the data from database to frontend
 //also for searching in form of /loaddata?field=XXXXX?searchItem=XXXXX
@@ -225,7 +240,7 @@ app.get("/loaddata",function(req,res){
 	let searchQuery = {};
 	if (req.query["field"]&&req.query["searchItem"])
 		searchQuery[req.query["field"]] = req.query["searchItem"];
-	Place.find(searchQuery,"name longitude latitude waitTime").exec(
+	Place.find(searchQuery,"name longitude latitude waitTime udpateTime").exec(
 		function(err,e){
 			if (err){
 				res.send("Fail to fetch data from database!");
