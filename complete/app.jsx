@@ -1027,7 +1027,8 @@ const adminRoutes = [
       </>
     );
   }
-
+  // Path Protectection & Redirection is implemented by modfying the code from
+  // https://github.com/dennis-jiang/Front-End-Knowledges/tree/master/Examples/React/react-router-usage/src
   function App(props) {
     const [user, setUser] = useState({});
   

@@ -454,6 +454,7 @@ app.get('/admin/place', authAdmin, function(req, res){
 			{
 				for (var i = 0; i < results.length; i++)
 				{
+					console.log(results[i]);
 					str +=
 					"Place name: " + results[i].name + "<br>" +
 					"Place latitude: " + results[i].latitude + "<br>" +
@@ -548,20 +549,32 @@ app.post('/admin/adduser', authAdmin, function (req, res) {
 				res.send("User with id"+ req.body.name + "already exist.");
 			}
 			else{
-				var new_user = new User({
-					id: req.body.id,
-					name: req.body.name,
-					password: req.body.password,
-					isAdmin: false
-				});
-				new_user.save(function (err) {
-					if (err) {
-						console.log("new user cannot save, err: " + err);
-						res.send("Fail to create user. Please enter again!");
+				User.findOne()
+				.sort({ id: -1 })
+				.exec(function (err,user2) {
+					if (user2 === null) {
+						User.create({
+							id: 1,
+							name: req.body.name,
+							password: require('bcryptjs').hashSync(req.body.password,10),
+							isAdmin: false
+						}, function (err,userNew) {
+							if (err) return handleError(err);
+							res.send("welcome first user!");
+						})
 					}
 					else {
-						res.status(201).send("new user created");
+						User.create({
+							id: user2.id+1,
+							name: req.body.name,
+							password: require('bcryptjs').hashSync(req.body.password,10),
+							isAdmin: false
+						}, function (err,userNew) {
+							if (err) return handleError(err);
+							res.send("ok");
+						})		
 					}
+				
 				});
 			}
 		});
@@ -576,6 +589,7 @@ app.get('/admin/users', authAdmin, function (req, res) {
 		function (err, results) {
 			if (err){res.send(err);}
 			else if(results.length )
+			console.log(results);
 			if (results.length > 0) {
 				for (var i = 0; i < results.length; i++) {
 					str +=
@@ -634,7 +648,7 @@ app.post("/admin/updateUser", authAdmin, function (req, res) {
 		var new_user = {
 			name: req.body.name,
 			password: require('bcryptjs').hashSync(req.body.password,10),
-			favorite: null,
+			favorite: [],
 			isAdmin: false
 		};
 		User.findOneAndUpdate(
