@@ -2,6 +2,7 @@ const {BrowserRouter, Link, Route, Switch, Redirect} = ReactRouterDOM;
 const Router = BrowserRouter;
 const {useRouteMatch, useParams, useLocation} = ReactRouterDOM;
 
+
 //change the url here for ur own implementation 
 //important dont delete it 
 var url = "http://csci2720-g49.cse.cuhk.edu.hk"
@@ -109,6 +110,230 @@ var url = "http://csci2720-g49.cse.cuhk.edu.hk"
       )
     }
   } 
+  
+  class GoogleMap extends React.Component{
+    constructor(props){
+      super(props);
+      this.state = {data :[], clickmark : -1, place: ""};
+    }
+    
+    getGoogleMaps() {
+      // If we haven't already defined the promise, define it
+      if (!this.googleMapsPromise) {
+        this.googleMapsPromise = new Promise((resolve) => {
+          // Add a global handler for when the API finishes loading
+          window.resolveGoogleMapsPromise = () => {
+            // Resolve the promise
+            resolve(google);
+  
+            // Tidy up
+            delete window.resolveGoogleMapsPromise;
+          };
+  
+          // Load the Google Maps API
+          const script = document.createElement("script");
+          const API = 'AIzaSyBX3OPlj2Y4dYCqy-tGb0LwJ9f7-ExC6tg';
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${API}&callback=resolveGoogleMapsPromise`;
+          script.async = true;
+          document.body.appendChild(script);
+        });
+      }
+  
+      // Return a promise for the Google Maps API
+      return this.googleMapsPromise;
+    }
+
+    componentWillMount() {
+      // Start Google Maps API loading since we know we'll soon need it
+      this.getGoogleMaps();
+    }
+
+    componentDidMount(){
+      this.getGoogleMaps().then((google) => {
+        // var location = {};
+        var centerLocation = { lat: 22.302711, lng: 114.177216 }; // Hong Kong
+        const map = new google.maps.Map(document.getElementById('map'), {
+          zoom: 12,
+          center: centerLocation
+        });
+        for(var i = 0; i < this.props.data.length; i++){
+          var markerLoc = {lat: this.props.data[i].latitude, lng: this.props.data[i].longitude};
+          var marker = new google.maps.Marker({
+            label: this.props.data[i].name,
+            position: markerLoc,
+            map: map
+          })
+		  let self = this;
+		  google.maps.event.addListener(
+			marker,
+			'click',
+			(function (marker, i) {
+			  return function () {
+				self.setState({place: marker.label});
+				self.setState({clickmark: 1});
+			  }
+			})(marker, i)
+		  )
+        }
+      })
+    }
+
+    render(){
+      // No yet click the marker
+      if(this.state.clickmark == -1){
+        return(
+		<>
+			{this.props.data.length>0 &&(
+			<>
+			<div id="map" style={{ width: 1200, height: 1000 }}></div>
+			</>
+			)}
+		</>
+		)
+      }
+      else{ // clicked
+        return(
+          <>
+		  	<SeparateView place = {this.state.place}></SeparateView>
+          </>
+        )
+      }
+  
+    }
+  }
+
+  class SeparateView extends React.Component{
+    constructor(props){
+		super(props);
+		this.state = {data: [], placeinfo: [], info:{user:"", place:"", comment:""}};
+		this.handleSubmit = this.handleSubmit.bind(this);
+		this.setCommentInfo = this.setCommentInfo.bind(this);
+	}
+	
+    getGoogleMaps() {
+		// If we haven't already defined the promise, define it
+		if (!this.googleMapsPromise) {
+		  this.googleMapsPromise = new Promise((resolve) => {
+			// Add a global handler for when the API finishes loading
+			window.resolveGoogleMapsPromise = () => {
+			  // Resolve the promise
+			  resolve(google);
+	
+			  // Tidy up
+			  delete window.resolveGoogleMapsPromise;
+			};
+	
+			// Load the Google Maps API
+			const script = document.createElement("script");
+			const API = 'AIzaSyBX3OPlj2Y4dYCqy-tGb0LwJ9f7-ExC6tg';
+			script.src = `https://maps.googleapis.com/maps/api/js?key=${API}&callback=resolveGoogleMapsPromise`;
+			script.async = true;
+			document.body.appendChild(script);
+		  });
+		}
+	
+		// Return a promise for the Google Maps API
+		return this.googleMapsPromise;
+	}
+  
+	componentWillMount() {
+		// Start Google Maps API loading since we know we'll soon need it
+		this.getGoogleMaps();
+	}
+  
+  getplaceinfo(){
+		var placeurl = url + "/loaddata?field=name&searchItem="+this.props.place;
+		fetch(placeurl)
+		.then(response => response.json())
+		.then(placeinfo=> {
+		  this.setState({placeinfo});
+		})    
+  }
+
+	componentDidMount(){
+		axios.get(url + "/loadcomment?searchItem="+ this.props.place)
+		.then(res =>{
+		  this.setState({data: res.data});
+		});
+
+    this.getplaceinfo();
+
+		this.getGoogleMaps().then((google) => {
+			var centerLocation = { lat: this.state.placeinfo[0].latitude, lng: this.state.placeinfo[0].longitude}; 
+			const map = new google.maps.Map(document.getElementById('map'), {
+			  zoom: 20,
+			  center: centerLocation
+			});
+
+			var marker = new google.maps.Marker({
+				label: this.state.placeinfo[0].name,
+				position: centerLocation,
+				map: map
+			})
+
+		}
+		)
+	}
+
+    handleSubmit(event){
+      event.preventDefault();
+      axios.post(url+ "/addcomment",this.state.info)
+      .then(res=>{
+        this.setState({stm:res.data,submitted:1});
+        setTimeout(()=>{this.setState({submitted:-1})},5000);
+        this.componentDidMount();
+      })
+    }
+
+	setCommentInfo(event){
+		event.preventDefault();
+		let copyinfo = this.state.info
+		copyinfo["user"] = "test2"; // need to change to your user
+		copyinfo["place"] = this.state.placeinfo[0].name;
+		copyinfo["comment"] = event.target.value;
+		this.setState({info:copyinfo});
+	}
+
+	render(){
+		return(
+			<>
+			<div id="map" style={{ width: 1200, height: 500 }}></div>
+
+			{this.state.data.length == 0 &&(
+			<h4>NO comment for this place yet.</h4>
+			)}
+
+			{this.state.data.length>0 &&(
+			<table className = "text-left table">
+			<thead>
+				<tr>
+				<th>author</th>
+				<th>comment</th>
+				</tr>
+			</thead>
+			<tbody>
+				{this.state.data.map((commments,index)=>
+				<tr key = {index}>
+					<td>{commments[0]}</td>
+					<td>{commments[1]}</td>
+				</tr>
+				)}
+			</tbody>
+			</table>
+			)} 
+
+			<h3>Add a new comment</h3>
+			<form onSubmit = {this.handleSubmit}>
+			<div className="mb-3">
+				<textarea id = "commentbox" className="form-control" rows="3" onChange={(event)=> this.setCommentInfo(event)}></textarea>
+			</div> 
+			<input type="submit"></input>         
+			</form>
+
+			</>
+		)
+	}
+  }
   
   class Header extends React.Component {
   render() {
@@ -380,10 +605,20 @@ var url = "http://csci2720-g49.cse.cuhk.edu.hk"
   
   {/* showing google Map NOT YET DONE */}
   class ShowAvailable extends React.Component {
+    constructor(props){
+      super(props);
+      this.state = {data :[]};
+    }
+
+    componentDidMount(){
+      fetch(url + "/loaddata")
+      .then(response => response.json())
+      .then(data=> this.setState({data}))}
+
     render() {
       return (
         <>
-          <h2>ShowAvailable</h2>
+          <GoogleMap data = {this.state.data}></GoogleMap>
         </>
       )
     }
