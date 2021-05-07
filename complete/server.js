@@ -55,6 +55,7 @@ var userSchema = Schema({
 	name: { type: String, required: true, unique: true},
 	password: { type: String, required: true },//need to fulfill hash later
 	favorite: [{ type: Schema.Types.ObjectId, ref: 'Place' }],
+	comment: [{ type: Schema.Types.ObjectId, ref: 'Comment' }],
 	isAdmin: { type: Boolean, required:true}
 });
 
@@ -70,7 +71,7 @@ var placeSchema = Schema({
 });
 
 var commentSchema = Schema({
-	author: {type: String, required: true},
+  author: { type: String, required: true},
 	content: { type: String, required: true},
 });
 

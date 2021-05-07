@@ -110,6 +110,7 @@ const adminRoutes = [
     },
     {
       path: '/backend/GoogleMap',
+
       component: Backend,
       exact: true,
       role: 'user',
@@ -227,6 +228,7 @@ const adminRoutes = [
                 </th>
                 <th>
                   Last Update Time<button className = "btn" onClick={()=>this.onSortChange("updateTime")}><span className={this.state.ordering["updateTime"]<0 ? "bi bi-sort-down":"bi bi-sort-up" }/></button>
+
                 </th>
               </tr>
             </thead>
@@ -273,6 +275,7 @@ const adminRoutes = [
         <>
           <Table data={this.state.data}></Table>
           <GoogleMap data={this.state.data}></GoogleMap>
+
         </>
       )
     }
@@ -502,6 +505,18 @@ class SeparateView extends React.Component {
   }
 }
 
+=======
+  {/* Need to be implemented */}
+  class ShowAvailable extends React.Component {
+    render() {
+      return (
+        <>
+          <h2>ShowAvailable</h2>
+        </>
+      )
+    }
+  }
+
   {/*Searching */ }
   class Search extends React.Component {
     constructor(props){
@@ -561,6 +576,7 @@ class SeparateView extends React.Component {
     constructor(props){
       super(props);
       this.state ={data:[],update:0};
+
     }
     componentDidMount(){
       fetch(url+"/loaddata", {
@@ -601,6 +617,7 @@ class SeparateView extends React.Component {
         <button type="button" className="d-inline-block" onClick = {()=>this.handleUpdate()}>Update</button>
         {this.state.update==1 && <p className="d-inline-block ">update Successfully!</p>}
         {this.state.update==-1 && <p className="d-inline-block">Fail to Update</p>}
+
         </div>
         <Table data ={this.state.data}></Table>
         </>
@@ -641,7 +658,8 @@ class SeparateView extends React.Component {
   class CreatePlace extends React.Component{
     constructor(props){
       super(props);
-      this.state = {info:{name:"",latitude:"",longitude:"",waitTime:"",updateTime:"",updateTime:""},stm:"",submitted:-1};
+      this.state = {info:{name:"",latitude:"",longitude:"",waitTime:"",updateTime:""},stm:"",submitted:-1};
+
       this.handleSubmit = this.handleSubmit.bind(this);
       this.changeItem = this.changeItem.bind(this);
     }
@@ -1070,8 +1088,10 @@ class SeparateView extends React.Component {
           <hr/>
           <Switch>
             <Route exact path="/backend" component={BlankPage} /> 
+
               <Route exact path="/backend/listallplace" component={ShowAvailablePlace} />
             <Route exact path="/backend/GoogleMap" component={GoogleMap} />   
+
             <Route exact path="/backend/search" component={Search} />
             <Route path="*" component={NoMatch} />
           </Switch>
@@ -1185,7 +1205,7 @@ class SeparateView extends React.Component {
         console.log('AsyncStorage error: ' + error.message);
       }
     }
-    
+
     const handleSubmit = (event) => {
       //alert('A name was submitted: ' + this.state.username);
       console.log(username);

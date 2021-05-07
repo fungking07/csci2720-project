@@ -1,6 +1,8 @@
 const express = require('express');
 const app = express();
 const fetch = require('node-fetch');
+const cors = require("cors");
+const moment = require("moment");
 var bodyParser = require('body-parser');
 app.use(bodyParser.urlencoded({extended:false}));
 app.use(bodyParser.json());
@@ -30,9 +32,8 @@ gps_dictionary={
 };
 
 var mongoose = require('mongoose');
-const { read } = require('node:fs');
 var Schema = mongoose.Schema;
-mongoose.connect('mongodb://s1155095200:x08938@localhost/s1155095200');
+mongoose.connect('mongodb://s1155110657:x21378@localhost/s1155110657');
 
 var db = mongoose.connection;
 // Upon connection failure
@@ -43,9 +44,11 @@ console.log("Connection is open...");
 });
 
 var userSchema = Schema({
-	name: { type: String, required: true, unique: true },
+	id: {type:String, required:true,unique: true},
+	name: { type: String, required: true, unique: true},
 	password: { type: String, required: true },//need to fulfill hash later
 	favorite: [{ type: Schema.Types.ObjectId, ref: 'Place' }],
+	comment: [{ type: Schema.Types.ObjectId, ref: 'Comment' }],
 	isAdmin: [{ type: Boolean}]
 });
 
@@ -54,23 +57,128 @@ var placeSchema = Schema({
 	latitude: { type: Number, required: true },
 	longitude: { type: Number, required: true },
 	waitTime: { type: Number, required: true },
-	updateTime: { type: Number, required: true },
+	SevenDaysTime:[{type:Number}],
+	TenHourTime:[{type:Number}],
+	updateTime: { type: String, required: true },
 	comment: [{ type: Schema.Types.ObjectId, ref: 'Comment' }]
 });
 
 var commentSchema = Schema({
-<<<<<<< Updated upstream
 	author: { type: String, required: true},
 	content: { type: String, required: true}
-=======
-	author: {type: String, required: true},
-	content: { type: String, required: true},
->>>>>>> Stashed changes
 });
 
 var Place = mongoose.model('Place', placeSchema);
 var User = mongoose.model('User', userSchema);
 var Comment = mongoose.model('Comment', commentSchema);
+
+//allow cors
+app.use(cors());
+
+async function fetchSevenDayData(str,hosp){
+	var date = []
+	var waitTime = []
+	var data = []
+	// date sort from latest to oldest using library --Moment 
+	//the addition of 15 minutes is due to the delay report from the website, url/20210503-1800 record data for 17:45
+	for(i = 1 ; i<7;i++){
+		date.push(moment(str,"DD/MM/YYYY hh:mmA").subtract(i,'days').add(15,'minutes').format("YYYYMMDD-HHmm"));
+	}
+	// fail to sort the date in ascending order 
+	const promises = date.map(
+			id =>fetch("https://api.data.gov.hk/v1/historical-archive/get-file?url=http%3A%2F%2Fwww.ha.org.hk%2Fopendata%2Faed%2Faedwtdata-en.json&time="+id,{method:"get"})
+			.then(res=>res.json())
+			.then((json)=>{
+				json["waitTime"].forEach((item)=>{
+					if (item.hospName == hosp){
+						data.push(moment(json['updateTime'],"DD/MM/YYYY hh:mmA").format("YYYYMMDD")+":"+Number(item.topWait.match(/\d+/)[0]))
+					}
+				})
+			})
+		)
+	// Promise all is used to allow parallel fetching
+	await Promise.all(promises)
+	.then(() =>{
+		//stupid way to sort the waitTime by date order see if there are better method
+		data = data.sort();
+		for (i = 0; i<data.length;i++){
+			waitTime.push(data[i].split(":",)[1])
+		}
+		fetch("http://www.ha.org.hk/opendata/aed/aedwtdata-en.json",{ method: "Get" })
+		.then(res => res.json())
+	    .then((json) => {
+			json["waitTime"].forEach((item)=>{
+				if (item.hospName == hosp){
+					waitTime.push(Number(item.topWait.match(/\d+/)[0]))
+				}
+			})
+			var conditions = { name: hosp };
+			Place.findOne( conditions, function( err, place ) {
+			if (err) return handleError(err);
+				if (place != null) {
+					place.SevenDaysTime = waitTime;
+					place.save();
+				}
+			}
+		)}
+	)}
+)}
+
+async function fetchTenHourData(str,hosp){
+	var date = []
+	var waitTime = []
+	var data = []
+	// date sort from latest to oldest using library --Moment 
+	//the addition of 15 minutes is due to the delay report from the website, url/20210503-1800 record data for 17:45
+	for(i = 1 ; i<10;i++){
+		date.push(moment(str,"DD/MM/YYYY hh:mmA").subtract(i,'hours').add(15,'minutes').format("YYYYMMDD-HHmm"));
+	}
+
+	// fail to sort the date in ascending order 
+	const promises = date.map(
+			id =>fetch("https://api.data.gov.hk/v1/historical-archive/get-file?url=http%3A%2F%2Fwww.ha.org.hk%2Fopendata%2Faed%2Faedwtdata-en.json&time="+id,{method:"get"})
+			.then(res=>res.json())
+			.then((json)=>{
+				json["waitTime"].forEach((item)=>{
+					if (item.hospName == hosp){
+						data.push(moment(json['updateTime'],"DD/MM/YYYY hh:mmA").format("YYYYMMDD-HHmm")+":"+Number(item.topWait.match(/\d+/)[0]))
+					}
+				})
+			})
+	)
+	// Promise all is used to allow parallel fetching
+	await Promise.all(promises)
+	.then(() =>{
+		//stupid way to sort the waitTime by date order see if there are better method
+		data = data.sort();
+		for (i = 0; i<data.length;i++){
+			waitTime.push(data[i].split(":",)[1])
+		}
+		
+		fetch("http://www.ha.org.hk/opendata/aed/aedwtdata-en.json",{ method: "Get" })
+		.then(res => res.json())
+	    .then((json) => {
+			json["waitTime"].forEach((item)=>{
+				if (item.hospName == hosp){
+					waitTime.push(Number(item.topWait.match(/\d+/)[0]))
+				}
+			})
+			var conditions = { name: hosp };
+			Place.findOne( conditions, function( err, place ) {
+			if (err) return handleError(err);
+				if (place != null) {
+					place.TenHourTime = waitTime;
+					place.save();
+			}
+			}
+		)}
+	)}
+)}
+
+async function fetchPastData(str,hosp){
+	await fetchSevenDayData(str,hosp);
+	await fetchTenHourData(str,hosp);
+}
 
 //load the data from hospAPI and store them in database at the first time
 app.get('/init', function(req,res) {
@@ -83,17 +191,18 @@ app.get('/init', function(req,res) {
 	    	//console.log(json["updateTime"]);
 	    	json["waitTime"].forEach((item)=>{
 	    		//console.log(item.hospName+" "+ item.topWait.match(/\d+/)[0]+"\n");		
-				//wait time will change to array
 	    		Place.create({
 	    			name:item.hospName,
 	    			latitude: gps_dictionary[item.hospName][0],
 	    			longitude: gps_dictionary[item.hospName][1],
 	    			waitTime: Number(item.topWait.match(/\d+/)[0]),
-	    			updateTime: 0
+	    			updateTime: json["updateTime"]
 	    		},function (err, place) {
-	    			if (err) return handleError(err);
+	    			if (err) {console.log(err)}
+					else{
+						fetchPastData(json["updateTime"],item.hospName)
+					}
 	    		})
-	    		
 	    	});
 		   res.send("Init successfully!");
 		});
@@ -107,28 +216,25 @@ app.get('/update', function(req,res) {
 	fetch(hospAPI, settings)
 	    .then(res => res.json())
 	    .then((json) => {
-	    	//console.log(json["updateTime"]);
-	    	json["waitTime"].forEach((item)=>{
-	    		//console.log(item.hospName+" "+ item.topWait.match(/\d+/)[0]+"\n");		
+	    	json["waitTime"].forEach((item)=>{		
 			var conditions = { name: item.hospName };
 			Place.findOne( conditions, function( err, place ) {
 			if (err) return handleError(err);
 			if (place != null) {
-				//clear up wait time
-				//push wait time here
 					place.waitTime = Number(item.topWait.match(/\d+/)[0]);
-					place.updateTime = 1;
+					place.updateTime = json["updateTime"];
 					place.save();
+					fetchPastData(json["updateTime"],item.hospName);
 				}
 			})
 	    		
 	    	});
-		   res.send("Update successfully!");
+		   
+		}).then(()=>{
 		});
+		res.send("Update successfully!");
 });
 
-<<<<<<< Updated upstream
-=======
 //getting data for particular hospital
 app.get("/page/:name",function(req,res){
 	let hosp = req.params["name"]
@@ -185,7 +291,6 @@ app.get("/loadcomment", function(req,res){
 	})
 })
 
->>>>>>> Stashed changes
 //test adding comment under places 
 app.get('/comment', function(req,res) {
 	//hardcode p here, may parse from body later
@@ -234,6 +339,7 @@ app.post('/admin/addplace', function(req, res){
 		{
 			if(err){
 				console.log("new place cannot save, err: "+err);
+				res.send("Fail to create new place");
 			}
 			else{
 				res.status(201).send("new place created");
@@ -265,13 +371,13 @@ app.get('/admin/place', function(req, res){
 					"Place updateTime: " + results[i].updateTime + "<br><br>" +
 					"Place comment: <br>";
 					/*user comment is push*/
-					if (results[i].comment != null)
+					if (results[i].comment.length !=0)
 					{
 						for (var j = 0; j < results[i].comment.length; j++) 
 						{
 							str +=
-								"Author: " + result[i].comment[j].author + "<br>" +
-								"Comment: " + result[i].comment[j].content + "<br>";
+								"Author: " + results[i].comment[j].author + "<br>" +
+								"Comment: " + results[i].comment[j].content + "<br>";
 						}
 					}else{
 						str += "NO comment for this place yet. <br>";
@@ -303,9 +409,10 @@ app.post("/admin/update", function(req, res){
 		updateTime: req.body.updateTime
 	};
 	Place.findOneAndUpdate(
-		{ name: req.body.name}, new_place, function(err, Place){
+		{ name: req.body.name}, new_place, function(err, place){
 			if (err){
 				console.log("update error: "+ err);
+				res.send("udpate error");
 			}
 			else if (!place){
 				res.send(req.body.name + " is not found.");
@@ -328,7 +435,7 @@ app.post("/admin/deleteplace", function(req, res){
 			res.send(req.body.name + " do not exist in db. Cannot delete.");
 		}
 		else{
-			res.send("Delete of " + req.params["placename"] + " success.");
+			res.send("Delete of " + req.body.name + " success.");
 		}
 	})
 })
@@ -339,17 +446,18 @@ app.post("/admin/deleteplace", function(req, res){
 app.post('/admin/adduser', function (req, res) {
 	if (req.body.name == null) {
 		res.send("name cannot be empty.");
-	}
+	} 
 	else if (req.body.password == null) {
 		res.send("password cannot be empty.");
 	}
 	else {
 		User.find({name: req.body.name}, function(err, user){
 			if (user.length> 0){
-				res.send("User name with "+ req.body.name + "already exist.");
+				res.send("User with id"+ req.body.name + "already exist.");
 			}
 			else{
 				var new_user = new User({
+					id: req.body.id,
 					name: req.body.name,
 					password: req.body.password,
 					isAdmin: false
@@ -389,7 +497,7 @@ app.get('/admin/users', function (req, res) {
 					else{
 						str += "NO favourite place for this user.";
 					}
-					str += "User updateTime: " + results[i].updateTime + "<br>";
+					// str += "User updateTime: " + results[i].updateTime + "<br>";
 				}
 				res.send(str);
 			}
@@ -438,7 +546,7 @@ app.post("/admin/updateUser", function (req, res) {
 			isAdmin: false
 		};
 		User.findOneAndUpdate(
-			{ name: req.body.name }, new_user, function (err) {
+			{ name: req.body.name }, new_user, function (err,user) {
 				if (err) {
 					console.log("update error: " + err);
 				} else if (!user) {
@@ -518,9 +626,9 @@ app.post("/user/addfavorite", function (req, res)
 });
 
 //add new comment to place
-app.post("/addComment", function(req, res)
-{
-	if (req.body.comment != null || req.body.place != null)
+app.post("/addcomment", function(req, res)
+{	
+	if (req.body.comment != "")
 	{
 		var new_comment = new Comment({
 			author: req.body.user,
@@ -545,4 +653,4 @@ app.post("/addComment", function(req, res)
 });
 
 // listen to port x
-const server = app.listen(2009);
+const server = app.listen(2048);
