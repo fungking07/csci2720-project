@@ -1,39 +1,22 @@
 const express = require('express');
+var cors = require('cors')
 const app = express();
 const fetch = require('node-fetch');
-const cors = require("cors");
-const moment = require("moment");
+const jwt = require('jsonwebtoken');
 var bodyParser = require('body-parser');
+const moment = require("moment");
 app.use(bodyParser.urlencoded({extended:false}));
 app.use(bodyParser.json());
+app.use(express.json());
 
-/*
-	Coordinates chosen for the hospital unless specfied, using coordinates from google maps
-*/
-gps_dictionary={
-	 "Alice Ho Miu Ling Nethersole Hospital":	[22.45913185742467,  114.17469068876338], 
-     "Caritas Medical Centre":					[22.341772912666165, 114.15320232677372], 
-     "Kwong Wah Hospital":						[22.31541006804377,  114.17240266910228], 
-     "North District Hospital":					[22.497087757325254, 114.12469079794036], 
-     "North Lantau Hospital":					[22.282266349922747, 113.9392599691018], 
-     "Princess Margaret Hospital":				[22.341668612896427, 114.13373546725335], 
-     "Pok Oi Hospital":							[22.445004779595717, 114.0420270678224], 	// Coordiantes of A&E
-     "Prince of Wales Hospital":				[22.38079103788961,  114.20195365848012],	// Coordiantes of A&E
-     "Pamela Youde Nethersole Eastern Hospital":[22.269277042925737, 114.23544138768872], 	// Coordiantes of Emergency Room
-     "Queen Elizabeth Hospital":				[22.30955973314367,  114.17606620922312], 	// Coordiantes of A&E
-     "Queen Mary Hospital":						[22.27077146378893,  114.1313066074947],	// Coordiantes of Emergency Room
-	 "Ruttonjee Hospital":						[22.27587303226667,  114.17531096773565],
-     "St John Hospital":						[22.20808237968386,  114.03163397237024], 
-     "Tseung Kwan O Hospital":					[22.31737229464226,  114.27027219094613], 	// Coordiantes of A&E
-     "Tuen Mun Hospital":						[22.407044471010426, 113.9762685280754], 	// Coordiantes of A&E
-     "Tin Shui Wai Hospital":					[22.458752601246452, 113.99582695694608], 	// Coordiantes of A&E
-     "United Christian Hospital":				[22.322312351570925, 114.22800587362383],	// Coordiantes of A&E
-     "Yan Chai Hospital":						[22.36973757058297,  114.11960031686614]
-};
+var cors = require('cors');
+app.use(cors());
+
+const SECRET = "csci2720";
 
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
-mongoose.connect('mongodb://s1155110657:x21378@localhost/s1155110657');
+mongoose.connect('mongodb://s1155110790:x37622@localhost/s1155110790');
 
 var db = mongoose.connection;
 // Upon connection failure
@@ -43,13 +26,36 @@ db.once('open', function () {
 console.log("Connection is open...");
 });
 
+/*
+	Coordinates chosen for the hospital unless specfied, using coordinates from google maps
+*/
+gps_dictionary={
+	"Alice Ho Miu Ling Nethersole Hospital":	[22.45913185742467,  114.17469068876338], 
+	"Caritas Medical Centre":					[22.341772912666165, 114.15320232677372], 
+	"Kwong Wah Hospital":						[22.31541006804377,  114.17240266910228], 
+	"North District Hospital":					[22.497087757325254, 114.12469079794036], 
+	"North Lantau Hospital":					[22.282266349922747, 113.9392599691018], 
+	"Princess Margaret Hospital":				[22.341668612896427, 114.13373546725335], 
+	"Pok Oi Hospital":							[22.445004779595717, 114.0420270678224], 	// Coordiantes of A&E
+	"Prince of Wales Hospital":				[22.38079103788961,  114.20195365848012],	// Coordiantes of A&E
+	"Pamela Youde Nethersole Eastern Hospital":[22.269277042925737, 114.23544138768872], 	// Coordiantes of Emergency Room
+	"Queen Elizabeth Hospital":				[22.30955973314367,  114.17606620922312], 	// Coordiantes of A&E
+	"Queen Mary Hospital":						[22.27077146378893,  114.1313066074947],	// Coordiantes of Emergency Room
+	"Ruttonjee Hospital":						[22.27587303226667,  114.17531096773565],
+	"St John Hospital":						[22.20808237968386,  114.03163397237024], 
+	"Tseung Kwan O Hospital":					[22.31737229464226,  114.27027219094613], 	// Coordiantes of A&E
+	"Tuen Mun Hospital":						[22.407044471010426, 113.9762685280754], 	// Coordiantes of A&E
+	"Tin Shui Wai Hospital":					[22.458752601246452, 113.99582695694608], 	// Coordiantes of A&E
+	"United Christian Hospital":				[22.322312351570925, 114.22800587362383],	// Coordiantes of A&E
+	"Yan Chai Hospital":						[22.36973757058297,  114.11960031686614]
+};
+
 var userSchema = Schema({
-	id: {type:String, required:true,unique: true},
+	id: {type: Number, required:true,unique: true},
 	name: { type: String, required: true, unique: true},
 	password: { type: String, required: true },//need to fulfill hash later
-	favorite: [{ type: Schema.Types.ObjectId, ref: 'Place' }],
-	comment: [{ type: Schema.Types.ObjectId, ref: 'Comment' }],
-	isAdmin: [{ type: Boolean}]
+	favorite: [{type: String}],
+	isAdmin: { type: Boolean, required:true}
 });
 
 var placeSchema = Schema({
@@ -64,16 +70,137 @@ var placeSchema = Schema({
 });
 
 var commentSchema = Schema({
+	author: {type: String, required: true},
 	content: { type: String, required: true},
 });
-
 
 var Place = mongoose.model('Place', placeSchema);
 var User = mongoose.model('User', userSchema);
 var Comment = mongoose.model('Comment', commentSchema);
 
-//allow cors
-app.use(cors());
+const authUser = async (req, res, next) => {
+	//console.log(req.headers);
+	const raw = String(req.headers.authorization).split(' ').pop();
+	// find Object_id  of user in database
+	console.log(raw);
+	try {
+		const { id } = jwt.verify(raw, SECRET);
+		//console.log(id);
+		req.user = await User.findById(id);
+		console.log(req.user);
+		next();
+	}
+	catch(e) {
+		console.log("invalid token");
+		req.status = false;
+	}
+}
+
+const authAdmin = async (req, res, next) => {
+	//console.log(req.headers);
+	const raw = String(req.headers.authorization).split(' ').pop();
+	// find Object_id  of user in database
+	console.log(raw);
+	try {
+		const { id } = jwt.verify(raw, SECRET);
+		//console.log(id);
+		req.user = await User.findById(id);
+		console.log(req.user);
+		if (req.user.admin == false) {
+			console.log("no access right");
+			return;
+		}
+		next();
+	}
+	catch(e) {
+		console.log("invalid token");
+		req.status = false;
+	}
+	
+
+}
+
+app.post('/register', function(req,res) {
+	//console.log(req.body.username);
+	//console.log(req.body.password);
+	User.findOne()
+	.sort({ id: -1 })
+	.exec(function (err,user) {
+		if (user === null) {
+			User.create({
+				id: 1,
+				name: req.body.username,
+				password: require('bcryptjs').hashSync(req.body.password,10),
+				isAdmin: req.body.admin
+			}, function (err,userNew) {
+				if (err) return handleError(err);
+				res.json("welcome first user!");
+			})
+		}
+		else {
+			User.find({name:req.body.name}).exec(function(err,response){
+				console.log(response);
+				if (err){
+					res.json(err);
+				}else if (response.length == 0){
+					User.create({
+						id: user.id+1,
+						name: req.body.username,
+						password: require('bcryptjs').hashSync(req.body.password,10),
+						isAdmin: 0
+					}, function (err,userNew) {
+						if (err){
+							res.json("Register Fail");
+							return;
+						};
+						res.json("Register Success");
+					})
+				}else{
+					res.json("The user has already been existed");
+				}
+			})
+		}
+	})
+})
+
+app.post('/login',  function(req,res) {
+	console.log(req.body);
+	User.findOne({
+		name: req.body.username
+	}).exec(function (err,user) {
+		//console.log(user);
+		if (err) return handleError(err);
+		if (user === null) {
+			return res.send("no found");
+		}
+		const isPasswordValid = require('bcryptjs').compareSync(
+			req.body.password,
+			user.password)
+		if(!isPasswordValid) {
+			return res.send("wrong password!");
+		}
+		const token = jwt.sign({　
+			//id_token is here
+			id: String(user._id)
+
+		}, SECRET);
+		res.send({
+			user,
+			token: token
+		});
+	})
+});
+
+app.get('/test', authAdmin, function(req,res) {
+	console.log(req.status);
+	if(req.status == false) {
+		res.send("need permision");
+	}
+	else {
+		res.send("get test data");
+	}
+	
+});
 
 async function fetchSevenDayData(str,hosp){
 	var date = []
@@ -136,7 +263,7 @@ async function fetchTenHourData(str,hosp){
 
 	// fail to sort the date in ascending order 
 	const promises = date.map(
-			id =>fetch("https://api.data.gov.hk/v1/historical-archive/get-file?url=http%3A%2F%2Fwww.ha.org.hk%2Fopendata%2Faed%2Faedwtdata-en.json&time="+id,{method:"get"})
+			id =>fetch("https://api.data.gov.hk/v1/historical-archive/get-file?url=http%3A%2F%2Fwww.ha.org.hk%2Fopendata%2Faed%2Faedwtdata-en.json&time="+id,{method:"Get"})
 			.then(res=>res.json())
 			.then((json)=>{
 				json["waitTime"].forEach((item)=>{
@@ -179,7 +306,13 @@ async function fetchPastData(str,hosp){
 	await fetchSevenDayData(str,hosp);
 	await fetchTenHourData(str,hosp);
 }
-
+app.get("/testing",function(req,res){
+	fetch("https://api.data.gov.hk/v1/historical-archive/get-file?url=http%3A%2F%2Fwww.ha.org.hk%2Fopendata%2Faed%2Faedwtdata-en.json&time=20210507-0000",{method:"get"})
+	.then(res =>res.json())
+	.then((json)=>{
+		console.log(json);
+	})
+})
 //load the data from hospAPI and store them in database at the first time
 app.get('/init', function(req,res) {
 	let hospAPI = "http://www.ha.org.hk/opendata/aed/aedwtdata-en.json";
@@ -198,18 +331,18 @@ app.get('/init', function(req,res) {
 	    			waitTime: Number(item.topWait.match(/\d+/)[0]),
 	    			updateTime: json["updateTime"]
 	    		},function (err, place) {
-	    			if (err) {console.log(err)}
+	    			if (err) {console.log(err); return;}
 					else{
-						fetchPastData(json["updateTime"],item.hospName)
+						fetchPastData(json["updateTime"],item.hospName);
 					}
 	    		})
 	    	});
-		   res.send("Init successfully!");
+			res.send("Init successfully!");
 		});
 });
 
 //reload and update the data stored in database after first time
-app.get('/update', function(req,res) {
+app.get('/update', authAdmin, function(req,res) {
 	let hospAPI = "http://www.ha.org.hk/opendata/aed/aedwtdata-en.json";
 	let settings = { method: "Get" };
 
@@ -220,19 +353,30 @@ app.get('/update', function(req,res) {
 			var conditions = { name: item.hospName };
 			Place.findOne( conditions, function( err, place ) {
 			if (err) return handleError(err);
-			if (place != null) {
+			else if (!place){
+				Place.create({
+	    			name:item.hospName,
+	    			latitude: gps_dictionary[item.hospName][0],
+	    			longitude: gps_dictionary[item.hospName][1],
+	    			waitTime: Number(item.topWait.match(/\d+/)[0]),
+	    			updateTime: json["updateTime"]
+	    		})
+			}
+			else if (place != null) {
 					place.waitTime = Number(item.topWait.match(/\d+/)[0]);
 					place.updateTime = json["updateTime"];
+					place.latitude = gps_dictionary[item.hospName][0];
+					place.longitude = gps_dictionary[item.hospName][1];
 					place.save();
-					fetchPastData(json["updateTime"],item.hospName);
 				}
+			fetchPastData(json["updateTime"],item.hospName);
 			})
 	    		
 	    	});
 		   
 		}).then(()=>{
 		});
-		res.send("Update successfully!");
+		res.json("Update successfully!");
 });
 
 //getting data for particular hospital
@@ -241,11 +385,14 @@ app.get("/page/:name",function(req,res){
 	Place.findOne({name:hosp}).populate('comment').exec(
 		function(err,e){
 			if(err){
-				res.send("Fail")
+				res.send("Fail");
+				return;
 			}else if (!e){
-				res.send("No Result")
+				res.send("No Result");
+				return;
 			}else{
-				res.json(e)
+				res.json(e);
+				return;
 			}
 		}	
 	)
@@ -253,11 +400,11 @@ app.get("/page/:name",function(req,res){
 
 //fetch the data from database to frontend
 //also for searching in form of /loaddata?field=XXXXX?searchItem=XXXXX
-app.get("/loaddata",function(req,res){
+app.get("/loaddata" ,authUser, function(req,res){
 	let searchQuery = {};
 	if (req.query["field"]&&req.query["searchItem"])
 		searchQuery[req.query["field"]] = req.query["searchItem"];
-	Place.find(searchQuery,"name longitude latitude waitTime udpateTime").exec(
+	Place.find(searchQuery,"name longitude latitude waitTime updateTime").exec(
 		function(err,e){
 			if (err){
 				res.send("Fail to fetch data from database!");
@@ -268,29 +415,7 @@ app.get("/loaddata",function(req,res){
 		}
 	)
 })
-
-//fetch the comment list from database to frontend
-app.get("/loadcomment", function(req,res){
-	var commentlist = [];
-	Place.findOne({name:req.query["searchItem"]}, "comment").populate("comment").exec(
-		function(err,result){
-			if (err){
-				res.send("Fail to fetch data from database!");
-				return;
-			}
-			else{
-				if(result.comment.length != 0)
-				{
-					for (var i = 0; i < result.comment.length; i++) 
-					{
-						commentlist.push([result.comment[i].author,result.comment[i].content]);
-					}
-				}
-				res.send(commentlist);
-			}	
-	})
-
-})
+/*
 //test adding comment under places 
 app.get('/comment', function(req,res) {
 	//hardcode p here, may parse from body later
@@ -312,12 +437,12 @@ app.get('/comment', function(req,res) {
 	})
 });
 //The above function can be modified to update favorite place too
-
+*/
 
 //CRUD place data
 
 //Create place data
-app.post('/admin/addplace', function(req, res){
+app.post('/admin/addplace', authAdmin, function(req, res){
 	if (req.body.name == ""){
 		res.send("name cannot be empty.");
 	} else if (req.body.longitude == "") {
@@ -333,7 +458,7 @@ app.post('/admin/addplace', function(req, res){
 			latitude: req.body.latitude,
 			longitude: req.body.longitude,
 			waitTime: req.body.waitTime,
-			updateTime: req.body.updateTime
+			updateTime: moment().format("DD/MM/YYYY hh:mmA")
 		});
 		new_place.save(function(err)
 		{
@@ -349,7 +474,7 @@ app.post('/admin/addplace', function(req, res){
 });
 
 //read place data
-app.get('/admin/place', function(req, res){
+app.get('/admin/place', authAdmin, function(req, res){
 	var str = "Place(s) in the database: <br><br>";
 	Place.find().populate("comment").exec(
 		function(err, results){
@@ -363,11 +488,14 @@ app.get('/admin/place', function(req, res){
 			{
 				for (var i = 0; i < results.length; i++)
 				{
+					console.log(results[i]);
 					str +=
-					"Place name: " + results[i].name + "<br>" +
-					"Place latitude: " + results[i].latitude + "<br>" +
-					"Place longitude: " + results[i].longitude + "<br>" +
-					"Place waitTime: " + results[i].waitTime + "<br>" +
+					"Name: " + results[i].name + "<br>" +
+					"Latitude: " + results[i].latitude + "<br>" +
+					"Longitude: " + results[i].longitude + "<br>" +
+					"Current waitTime: " + results[i].waitTime + "<br>" +
+					"Last 7 days waiting Time: [" + results[i].SevenDaysTime + "]<br>"+
+					"Last 10 hours waiting Time: [" + results[i].TenHourTime + "]<br>" + 
 					"Place updateTime: " + results[i].updateTime + "<br><br>" +
 					"Place comment: <br>";
 					/*user comment is push*/
@@ -376,8 +504,8 @@ app.get('/admin/place', function(req, res){
 						for (var j = 0; j < results[i].comment.length; j++) 
 						{
 							str +=
-								"Author: " + results[i].comment[j].author + "<br>" +
-								"Comment: " + results[i].comment[j].content + "<br>";
+								"	Author: " + results[i].comment[j].author + "<br>" +
+								"	Comment: " + results[i].comment[j].content + "<br>";
 						}
 					}else{
 						str += "NO comment for this place yet. <br>";
@@ -392,7 +520,7 @@ app.get('/admin/place', function(req, res){
 });
 
 //Update the place data
-app.post("/admin/update", function(req, res){
+app.post("/admin/update", authAdmin, function(req, res){
 	if (req.body.name == "") {
 		res.send("name cannot be empty.");
 		console.log("empty");
@@ -406,13 +534,13 @@ app.post("/admin/update", function(req, res){
 		latitude: req.body.latitude,
 		longitude: req.body.longitude,
 		waitTime: req.body.waitTime,
-		updateTime: req.body.updateTime
+		updateTime: moment().format("DD/MM/YYYY hh:mmA")
 	};
 	Place.findOneAndUpdate(
 		{ name: req.body.name}, new_place, function(err, place){
 			if (err){
 				console.log("update error: "+ err);
-				res.send("udpate error");
+				res.send("update error");
 			}
 			else if (!place){
 				res.send(req.body.name + " is not found.");
@@ -425,7 +553,7 @@ app.post("/admin/update", function(req, res){
 });
 
 //Delete the place data
-app.post("/admin/deleteplace", function(req, res){
+app.post("/admin/deleteplace", authAdmin, function(req, res){
 	Place.findOneAndDelete({name: req.body.name}, function(err, place){
 		if (err) {
 			console.log("delete error: "+ err);
@@ -440,10 +568,11 @@ app.post("/admin/deleteplace", function(req, res){
 	})
 })
 
+
 //CRUD user data
 //name password favorite isAdmin
 //Create user data
-app.post('/admin/adduser', function (req, res) {
+app.post('/admin/adduser', authAdmin, function (req, res) {
 	if (req.body.name == null) {
 		res.send("name cannot be empty.");
 	} 
@@ -456,20 +585,32 @@ app.post('/admin/adduser', function (req, res) {
 				res.send("User with id"+ req.body.name + "already exist.");
 			}
 			else{
-				var new_user = new User({
-					id: req.body.id,
-					name: req.body.name,
-					password: req.body.password,
-					isAdmin: false
-				});
-				new_user.save(function (err) {
-					if (err) {
-						console.log("new user cannot save, err: " + err);
-						res.send("Fail to create user. Please enter again!");
+				User.findOne()
+				.sort({ id: -1 })
+				.exec(function (err,user2) {
+					if (user2 === null) {
+						User.create({
+							id: 1,
+							name: req.body.name,
+							password: require('bcryptjs').hashSync(req.body.password,10),
+							isAdmin: false
+						}, function (err,userNew) {
+							if (err) return handleError(err);
+							res.send("welcome first user!");
+						})
 					}
 					else {
-						res.status(201).send("new user created");
+						User.create({
+							id: user2.id+1,
+							name: req.body.name,
+							password: require('bcryptjs').hashSync(req.body.password,10),
+							isAdmin: false
+						}, function (err,userNew) {
+							if (err) return handleError(err);
+							res.send("ok");
+						})		
 					}
+				
 				});
 			}
 		});
@@ -478,12 +619,13 @@ app.post('/admin/adduser', function (req, res) {
 });
 //read users data
 //name password favorite comment isAdmin
-app.get('/admin/users', function (req, res) {
+app.get('/admin/users', authAdmin, function (req, res) {
 	var str = "user(s) in the database: <br><br>";
-	User.find({isAdmin: false}).populate("favorite").exec(
+	User.find({isAdmin: false}).exec(
 		function (err, results) {
 			if (err){res.send(err);}
 			else if(results.length )
+			console.log(results);
 			if (results.length > 0) {
 				for (var i = 0; i < results.length; i++) {
 					str +=
@@ -495,10 +637,12 @@ app.get('/admin/users', function (req, res) {
 						}
 					}
 					else{
-						str += "NO favourite place for this user.";
+						str += "NO favorite place for this user.";
 					}
 					// str += "User updateTime: " + results[i].updateTime + "<br>";
+					str += "<br>";
 				}
+				
 				res.send(str);
 			}
 		}
@@ -506,7 +650,7 @@ app.get('/admin/users', function (req, res) {
 });
 
 //Update the users data
-app.post("/admin/updateUser", function (req, res) {
+app.post("/admin/updateUser", authAdmin, function (req, res) {
 	if(req.body.favorite != null)
 	{
 		Place.findOne(
@@ -519,8 +663,8 @@ app.post("/admin/updateUser", function (req, res) {
 					//favorite should be push
 					var new_user = {
 						name: req.body.name,
-						password: req.body.password,
-						favorite: placeres,
+						password: require('bcryptjs').hashSync(req.body.password,10),
+						favorite: placeres.name,
 						isAdmin: false
 					};
 					User.findOneAndUpdate(
@@ -541,8 +685,8 @@ app.post("/admin/updateUser", function (req, res) {
 
 		var new_user = {
 			name: req.body.name,
-			password: req.body.password,
-			favorite: null,
+			password: require('bcryptjs').hashSync(req.body.password,10),
+			favorite: [],
 			isAdmin: false
 		};
 		User.findOneAndUpdate(
@@ -560,7 +704,7 @@ app.post("/admin/updateUser", function (req, res) {
 });
 
 //Delete the user data
-app.post("/admin/deleteUser", function (req, res) {
+app.post("/admin/deleteUser", authAdmin, function (req, res) {
 	User.findOneAndDelete({ name: req.body.name }, function (err, user) {
 		if (err) {
 			res.send("delete error: " + err);
@@ -598,24 +742,27 @@ app.get("places", function (req, res)
 //add current place to user's favorite
 app.post("/user/addfavorite", function (req, res)
 {
-	if (req.body.favorite != null & req.body.username != null)
+	console.log(req.body.place);
+	//res.send("Like successfully!");
+	
+	if (req.body.place != "")
 	{
-		User.findOne({name: req.body.username}).populate("favorite").exec(
+		User.findOne({name: req.body.username}).exec(
 			function(err, user)
 			{
 				if (user == null){
 					res.send("no such user");
 				}else{
-					Place.findOne({name: req.body.favorite}).populate("comment").exec(
+					Place.findOne({name: req.body.place}).exec(
 						function(err, place)
 						{
 							if (place == null){
 								res.send("no such place");
 							}else{
-								user.favorite.push(place);
+								user.favorite.push(place.name);
 								user.save();
 								//console.log("favourite" + user.favorite );
-								res.send("Your favourite place is saved");
+								res.send("Like successfully!");
 							}
 						}
 					);
@@ -623,13 +770,56 @@ app.post("/user/addfavorite", function (req, res)
 			}
 		);
 	}
+	
 });
 
+app.get("/user/loadfavorite/:name",function(req,res){
+	var favplace = []
+	User.findOne({ name: req.params.name},"favorite").exec(
+		function(err,fav){
+			if (err){
+				res.send("Fail to find user: " + req.params.name)
+			}else{
+				console.log(fav.favorite);
+				for(i = 0; i <fav.favorite.length;i++){
+					favplace.push(fav.favorite[i])
+				}
+				res.json(favplace);
+			}
+		}
+	)
+})
+//fetch the comment list from database to frontend
+app.get("/loadcomment", function(req,res){
+	var commentlist = [];
+	Place.findOne({name:req.query["searchItem"]}, "comment").populate("comment").exec(
+		function(err,result){
+			if (err){
+				res.send("Fail to fetch data from database!");
+				return;
+			}
+			else{
+				if(result.comment.length != 0)
+				{
+					for (var i = 0; i < result.comment.length; i++) 
+					{
+						commentlist.push([result.comment[i].author,result.comment[i].content]);
+					}
+				}
+				res.send(commentlist);
+			}	
+	})
+
+})
+
 //add new comment to place
-app.post("/addcomment", function(req, res)
-{	
-	if (req.body.comment != "")
-	{
+app.post("/addComment", function(req, res)
+{
+	console.log(req.body.place);
+	console.log(req.body.comment);
+	console.log(req.body.user);
+
+	if (req.body.comment != ""){
 		var new_comment = new Comment({
 			author: req.body.user,
 			content: req.body.comment
@@ -653,4 +843,4 @@ app.post("/addcomment", function(req, res)
 });
 
 // listen to port x
-const server = app.listen(2048);
+const server = app.listen(2049);
